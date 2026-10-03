@@ -31,5 +31,20 @@ object AppModule {
     ): Context = context
 
     @Provides
+    @Singleton
+    fun provideGoalDatabase(
+        @ApplicationContext context: Context,
+    ): com.retarget.goal.GoalDatabase =
+        com.retarget.goal.GoalDatabase
+            .get(context)
+
+    @Provides
+    fun provideGoalDao(db: com.retarget.goal.GoalDatabase): com.retarget.goal.GoalDao = db.goalDao()
+
+    @Provides
+    @Singleton
+    fun provideGoalRepository(dao: com.retarget.goal.GoalDao): com.retarget.goal.GoalRepository = com.retarget.goal.GoalRepository(dao)
+
+    @Provides
     fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
 }
