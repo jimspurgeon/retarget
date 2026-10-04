@@ -46,5 +46,16 @@ object AppModule {
     fun provideGoalRepository(dao: com.retarget.goal.GoalDao): com.retarget.goal.GoalRepository = com.retarget.goal.GoalRepository(dao)
 
     @Provides
+    @Singleton
+    fun provideCreativePackDao(db: com.retarget.goal.GoalDatabase): com.retarget.creative.CreativePackDao = db.creativePackDao()
+
+    @Provides
+    @Singleton
+    fun providePersistentCreativeRepository(
+        context: Context,
+        dao: com.retarget.creative.CreativePackDao,
+    ): com.retarget.creative.PersistentCreativeRepository = com.retarget.creative.PersistentCreativeRepository(context, dao)
+
+    @Provides
     fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
 }

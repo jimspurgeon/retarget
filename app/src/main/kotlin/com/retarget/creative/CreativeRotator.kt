@@ -20,8 +20,9 @@ import kotlin.math.ln
  * creative forever (wearout avoidance — advertising psychology §4,
  * docs/research/advertising-psychology.md).
  *
- * TODO(Phase 1): sub-theme diversity factor to spread selections across a pack
- * (see DEVELOPMENT.md “rotation engine”).
+ * Sub-theme diversity (Phase 1): score also multiplies in a boost for
+ * under-represented sub-themes based on the most recent N exposures, so
+ * selections spread across a pack instead of clustering on one look.
  *
  * PURE KOTLIN — no Android dependencies. Unit-test everything here.
  */
@@ -68,8 +69,33 @@ class CreativeRotator {
         val restRecovery = 1.0 - exp(-ln(2.0) * recencyHours / HALF_LIFE_HOURS)
         // Cumulative wear: each showing slightly tires the creative forever (small effect).
         val wearPenalty = 1.0 / (1.0 + WEAR_RATE * timesShown)
+        // Sub-theme diversity: boost under-represented sub-themes among the
+        // most recent N exposures so a pack's looks rotate broadly.
+        val subThemeBoost = subThemeDiversityBoost(creative.subTheme, ledger)
 
-        return creative.baseAppeal * restRecovery * wearPenalty
+        return creative.baseAppeal * restRecovery * wearPenalty * subThemeBoost
+    }
+
+    /**
+     * Diversity multiplier for [subTheme]: 1.0 when the theme is (jointly)
+     * most represented in the recent-exposure window, rising linearly to
+     * [SUB_THEME_MAX_BOOST] when absent from it.
+     */
+    internal fun subThemeDiversityBoost(
+        subTheme: String,
+        ledger: ExposureLedger,
+    ): Double {
+        val recent = ledger.recentExposures(SUB_THEME_WINDOW_N)
+        if (recent.isEmpty()) return 1.0
+        val counts = HashMap<String, Int>()
+        for (exposure in recent) {
+            counts[exposure.subTheme] = (counts[exposure.subTheme] ?: 0) + 1
+        }
+        val maxCount = counts.values.max()
+        val themeCount = counts[subTheme] ?: 0
+        if (maxCount == 0) return 1.0
+        val deficit = (maxCount - themeCount).toDouble() / maxCount
+        return 1.0 + SUB_THEME_MAX_BOOST * deficit
     }
 
     companion object {
@@ -77,13 +103,21 @@ class CreativeRotator {
         const val HALF_LIFE_HOURS = 72.0 // 3 days per creative freshness half-life
         const val WEAR_RATE = 0.03 // gentle cumulative wear
         const val MS_PER_HOUR = 3_600_000.0
+
+        /** Lookback window (most recent N exposures) for sub-theme diversity. */
+        const val SUB_THEME_WINDOW_N = 5
+
+        /** Score boost for a sub-theme entirely absent from the recent window. */
+        const val SUB_THEME_MAX_BOOST = 0.5
     }
 }
 
 /** Append-only, on-device impression log. Never leaves the device. */
 interface ExposureLedger {
+    /** Appends one exposure event. Events are self-describing (sub-theme denormalized). */
     fun recordExposure(
         creativeId: String,
+        subTheme: String,
         channel: Channel,
         atMs: Long,
     )
@@ -91,6 +125,17 @@ interface ExposureLedger {
     fun lastShownAt(creativeId: String): Long?
 
     fun timesShown(creativeId: String): Int
+
+    /** Most recent exposures first (newest first), at most [limit] entries. */
+    fun recentExposures(limit: Int): List<RecentExposure>
 }
+
+/** One ledger entry, newest-first view for diversity/analysis windows. */
+data class RecentExposure(
+    val creativeId: String,
+    val subTheme: String,
+    val channel: Channel,
+    val atMs: Long,
+)
 
 enum class Channel { WALLPAPER, NOTIFICATION, OVERLAY, WIDGET }
