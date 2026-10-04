@@ -7,6 +7,7 @@
 package com.retarget.app
 
 import android.app.Application
+import com.retarget.scheduler.WallpaperScheduler
 import dagger.hilt.android.HiltAndroidApp
 
 /**
@@ -14,4 +15,10 @@ import dagger.hilt.android.HiltAndroidApp
  * initialization happens lazily as phases land.
  */
 @HiltAndroidApp
-class RetargetApplication : Application()
+class RetargetApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        // Phase 1: keep the billboard rotating (~8h cadence, quiet-hours-aware).
+        WallpaperScheduler.scheduleWallpaperRotation(this)
+    }
+}

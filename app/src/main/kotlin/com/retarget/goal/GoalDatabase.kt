@@ -11,11 +11,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.retarget.creative.ExposureDao
+import com.retarget.creative.ExposureEntity
 
-@Database(entities = [GoalEntity::class], version = 1)
+@Database(entities = [GoalEntity::class, ExposureEntity::class], version = 2)
 @TypeConverters(GoalConverters::class)
 abstract class GoalDatabase : RoomDatabase() {
     abstract fun goalDao(): GoalDao
+
+    abstract fun exposureDao(): ExposureDao
 
     companion object {
         @Volatile
@@ -28,7 +32,12 @@ abstract class GoalDatabase : RoomDatabase() {
                         context.applicationContext,
                         GoalDatabase::class.java,
                         "retarget.db",
-                    ).build()
+                    )
+                    // Pre-alpha (no tagged release shipped schema v1): a schema
+                    // change falls back to an empty DB rather than shipping a
+                    // migration. Replace with real migrations at first release tag.
+                    .fallbackToDestructiveMigration(dropAllTables = true)
+                    .build()
                     .also { instance = it }
             }
     }
