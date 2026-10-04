@@ -11,4 +11,14 @@
     <string name="screen_onboarding_title">Pick your first campaign</string>
     <string name="onboarding_subtitle">Curated ad campaigns for wellbeing goals. One tap to activate — you can tune or cancel everything later.</string>
     <string name="onboarding_skip">Not now</string>
+
+    <!-- Settings screen -->
+    <string name="screen_settings_title">Settings</string>
+    <string name="settings_subtitle">Adjust how your campaign delivers nudges</string>
+    <string name="settings_quiet_hours_title">Quiet Hours</string>
+    <string name="settings_quiet_hours_description">No nudges will be delivered during this time</string>
+    <string name="settings_channel_target">Target: %d per day</string>
+    <string name="settings_channel_wallpaper">Wallpaper</string>
+    <string name="settings_channel_notification">Notification</string>
+    <string name="settings_icon_content_description">Settings</string>
 </resources>

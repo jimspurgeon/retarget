@@ -52,6 +52,14 @@ interface ExposureDao {
     @Query("SELECT * FROM exposures ORDER BY atMs DESC, id DESC LIMIT :limit")
     fun recent(limit: Int): List<ExposureEntity>
 
+    /** Total number of exposures recorded. */
+    @Query("SELECT COUNT(*) FROM exposures")
+    fun totalExposures(): Int
+
+    /** Number of exposures for a specific sub-theme. */
+    @Query("SELECT COUNT(*) FROM exposures WHERE subTheme = :subTheme")
+    fun exposuresBySubTheme(subTheme: String): Int
+
     /** One-tap purge (AGENTS.md §2: data must be fully deletable). */
     @Query("DELETE FROM exposures")
     fun clear()
@@ -73,6 +81,10 @@ class RoomExposureLedger(
     override fun lastShownAt(creativeId: String): Long? = dao.lastShownAt(creativeId)
 
     override fun timesShown(creativeId: String): Int = dao.timesShown(creativeId)
+
+    override fun totalExposures(): Int = dao.totalExposures()
+
+    override fun exposuresBySubTheme(subTheme: String): Int = dao.exposuresBySubTheme(subTheme)
 
     override fun recentExposures(limit: Int): List<RecentExposure> =
         dao.recent(limit).map { RecentExposure(it.creativeId, it.subTheme, it.channel, it.atMs) }
