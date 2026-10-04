@@ -7,6 +7,11 @@
 package com.retarget.app.di
 
 import android.content.Context
+import androidx.work.WorkManager
+import com.retarget.creative.ExposureDao
+import com.retarget.creative.RoomExposureLedger
+import com.retarget.scheduler.WallpaperScheduler
+import com.retarget.scheduler.WallpaperSchedulerManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -58,4 +63,41 @@ object AppModule {
 
     @Provides
     fun provideIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
+    /**
+     * Provides [RoomExposureLedger] wired to the Room database.
+     * Singleton-scoped to share exposure state across the app lifetime.
+     */
+    @Provides
+    @Singleton
+    fun provideExposureLedger(dao: ExposureDao): RoomExposureLedger = RoomExposureLedger(dao)
+
+    /**
+     * Provides WorkManager instance for wallpaper scheduling.
+     * Initialized lazily via getInstance()—no direct injection needed,
+     * but binding it here documents the dependency and enables mocking in tests.
+     */
+    @Provides
+    @Singleton
+    fun provideWorkManager(@ApplicationContext context: Context): WorkManager =
+        WorkManager.getInstance(context)
+
+    /**
+     * Exposes [WallpaperScheduler] as an injectable service for clean separation
+     * between domain logic and Android scheduling plumbing.
+     */
+    @Provides
+    @Singleton
+    fun provideWallpaperScheduler(): WallpaperScheduler = WallpaperScheduler
+
+    /**
+     * Provides [WallpaperSchedulerManager] to bind goal lifecycle to scheduler state.
+     * Monitors active goals and auto-starts/stops wallpaper rotation.
+     */
+    @Provides
+    @Singleton
+    fun provideWallpaperSchedulerManager(
+        @ApplicationContext context: Context,
+        repository: com.retarget.goal.GoalRepository,
+    ): WallpaperSchedulerManager = WallpaperSchedulerManager(context, repository)
 }

@@ -7,8 +7,9 @@
 package com.retarget.app
 
 import android.app.Application
-import com.retarget.scheduler.WallpaperScheduler
+import com.retarget.scheduler.WallpaperSchedulerManager
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 /**
  * Application entry point. Hilt root; nothing else belongs here — feature
@@ -16,15 +17,13 @@ import dagger.hilt.android.HiltAndroidApp
  */
 @HiltAndroidApp
 class RetargetApplication : Application() {
+    @Inject
+    lateinit var schedulerManager: WallpaperSchedulerManager
+
     override fun onCreate() {
         super.onCreate()
-        // Phase 1: keep the billboard rotating (~8h cadence, quiet-hours-aware).
-        // Guarded: Robolectric tests instantiate the Application without a
-        // WorkManager initializer, which would otherwise crash every test run.
-        try {
-            WallpaperScheduler.scheduleWallpaperRotation(this)
-        } catch (_: IllegalStateException) {
-            // WorkManager not initialized (unit-test host); skip scheduling.
-        }
+        // Wire wallpaper scheduler to goal activation lifecycle.
+        // Starts monitoring goals and auto-manages scheduler based on user-enabled campaigns.
+        schedulerManager.startMonitoring()
     }
 }
