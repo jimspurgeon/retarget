@@ -12,10 +12,19 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [GoalEntity::class], version = 1)
+@Database(
+    entities = [
+        GoalEntity::class,
+        com.retarget.creative.CreativePackEntity::class,
+        com.retarget.creative.CreativeEntity::class,
+    ],
+    version = 2,
+)
 @TypeConverters(GoalConverters::class)
 abstract class GoalDatabase : RoomDatabase() {
     abstract fun goalDao(): GoalDao
+
+    abstract fun creativePackDao(): com.retarget.creative.CreativePackDao
 
     companion object {
         @Volatile

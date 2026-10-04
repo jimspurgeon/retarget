@@ -40,6 +40,14 @@ android {
         }
     }
 
+    testOptions {
+        unitTests {
+            // Expose app assets (creative-packs/) to Robolectric-backed unit tests
+            // for the pack-ingestion integration test.
+            isIncludeAndroidResources = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
