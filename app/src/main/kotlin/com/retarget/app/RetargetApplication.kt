@@ -19,6 +19,12 @@ class RetargetApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         // Phase 1: keep the billboard rotating (~8h cadence, quiet-hours-aware).
-        WallpaperScheduler.scheduleWallpaperRotation(this)
+        // Guarded: Robolectric tests instantiate the Application without a
+        // WorkManager initializer, which would otherwise crash every test run.
+        try {
+            WallpaperScheduler.scheduleWallpaperRotation(this)
+        } catch (_: IllegalStateException) {
+            // WorkManager not initialized (unit-test host); skip scheduling.
+        }
     }
 }
