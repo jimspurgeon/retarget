@@ -9,6 +9,8 @@ package com.retarget.creative
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.WorkManagerTestInitHelper
 import com.retarget.goal.GoalDatabase
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -36,6 +38,10 @@ class PersistentCreativeRepositoryTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            context,
+            Configuration.Builder().build(),
+        )
         db =
             Room
                 .inMemoryDatabaseBuilder(context, GoalDatabase::class.java)
