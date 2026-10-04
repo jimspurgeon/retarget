@@ -8,4 +8,7 @@
         The engine behind it (fatigue-aware rotation, budgets, quiet hours) is
         already built and tested.
     </string>
+    <string name="screen_onboarding_title">Pick your first campaign</string>
+    <string name="onboarding_subtitle">Curated ad campaigns for wellbeing goals. One tap to activate — you can tune or cancel everything later.</string>
+    <string name="onboarding_skip">Not now</string>
 </resources>
