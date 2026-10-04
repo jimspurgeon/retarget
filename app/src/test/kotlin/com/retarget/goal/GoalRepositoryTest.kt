@@ -115,4 +115,21 @@ class GoalRepositoryTest {
         }
         assertTrue(threw)
     }
+
+    @Test
+    fun `updateSettings persists channel toggles`() =
+        runTest {
+            val id = repo.installPreset("hydration", nowMs = 0)
+            val goal = db.goalDao().byPresetId("hydration")
+            assertNotNull(goal)
+
+            val initialSettings = goal!!.settings
+            assertTrue(initialSettings.wallpaperEnabled)
+
+            val updatedSettings = initialSettings.copy(wallpaperEnabled = false)
+            repo.updateSettings(id, updatedSettings)
+
+            val refreshedGoal = db.goalDao().byPresetId("hydration")
+            assertFalse(refreshedGoal!!.settings.wallpaperEnabled)
+        }
 }
