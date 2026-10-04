@@ -36,7 +36,7 @@ exist and pass (see [DEVELOPMENT.md](DEVELOPMENT.md#feature-phases) for the road
 | Phase | Theme | Status |
 |---|---|---|
 | 0 | Foundation (repo, CI, docs) | ✅ Complete — v0.1.0 released |
-| 1 | MVP "The Billboard" (wallpaper engine) | Planned |
+| 1 | MVP "The Billboard" (wallpaper engine) | 🚧 In progress — Goal wizard shipped, engine core done |
 | 2 | "The Campaign" (notifications + scheduler) | Planned |
 | 3 | "The Agency" (adaptivity, widgets, bundles) | Planned |
 | 4 | Polish & community | Planned |

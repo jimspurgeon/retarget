@@ -21,4 +21,14 @@
     <string name="settings_channel_wallpaper">Wallpaper</string>
     <string name="settings_channel_notification">Notification</string>
     <string name="settings_icon_content_description">Settings</string>
+
+    <!-- Preset campaigns -->
+    <string name="preset_hydration_name">Hydration</string>
+    <string name="preset_hydration_blurb">Your body\'s oldest brand loyalty program.</string>
+    <string name="preset_fresh_air_name">Fresh Air</string>
+    <string name="preset_fresh_air_blurb">The outdoors. Now available outdoors.</string>
+    <string name="preset_fruit_name">More Fruit</string>
+    <string name="preset_fruit_blurb">Fruit: the other fast food.</string>
+    <string name="preset_vegetables_name">More Vegetables</string>
+    <string name="preset_vegetables_blurb">Redesigned by 400 million years of R&amp;D.</string>
 </resources>
