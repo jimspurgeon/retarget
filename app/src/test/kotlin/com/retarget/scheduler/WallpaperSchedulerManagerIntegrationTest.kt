@@ -212,11 +212,11 @@ class WallpaperSchedulerManagerIntegrationTest {
 
         // Insert goal directly into DB (bypassing repository to simulate direct DB change)
         val goal = GoalEntity(
-            presetId = PresetCatalog.entries.first().id,
+            presetId = PresetCatalog.ALL.first().id,
             displayName = "Test Goal",
             createdAt = System.currentTimeMillis(),
             settingsJson = GoalConverters().settingsToJson(
-                CampaignSettings(wallpaperEnabled = true)
+                CampaignSettings(wallpaperEnabled = true, wallpaperTargetsPerDay = 1, notificationTargetsPerDay = 0)
             ),
             active = true
         )
@@ -238,8 +238,8 @@ class WallpaperSchedulerManagerIntegrationTest {
 
     /** Helper to install a goal with specified wallpaper setting */
     private suspend fun installGoalWithWallpaper(enabled: Boolean): Long {
-        val preset = PresetCatalog.entries.first()
-        val settings = CampaignSettings(wallpaperEnabled = enabled)
+        val preset = PresetCatalog.ALL.first()
+        val settings = CampaignSettings(wallpaperEnabled = enabled, wallpaperTargetsPerDay = 1, notificationTargetsPerDay = 0)
         val entity = GoalEntity(
             presetId = preset.id,
             displayName = preset.displayName,
