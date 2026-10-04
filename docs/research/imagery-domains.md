@@ -113,8 +113,19 @@ palettes, tidy serene spaces, hands around warm mugs, sunset walks.
 - The app is 100% offline: creatives are fetched **at development time** by
   `scripts/fetch_creatives.py`, committed to the repo, and bundled into the APK.
   No network permission exists; no API key ever ships.
-- Unsplash is the primary source (top-ranked by search relevance, portrait
-  orientation, ≥1600px source, re-encoded to 1440px long-edge JPEG q78).
+- Unsplash is the primary source. Two ingest modes:
+  - **Hand-picked (preferred):** a maintainer browses unsplash.com, downloads
+    selections as `<slug>-<id>-unsplash.jpg` into the pack dir, and runs
+    `python scripts/fetch_creatives.py --handpicked <theme>`. The script parses the
+    photo ID from the filename, fetches attribution via the API (resumable
+    sidecar cache — the demo key is capped at 50 req/hr), re-encodes to 2160 px
+    long-edge JPEG q85 (visually indistinguishable from the original on a modern
+    high-res display), and writes the manifest + ledger. Manual curation exists
+    because search-term relevance proved unreliable for subject correctness and
+    vibrancy (auto-fetched fruit contained pines and flowers).
+  - **Auto-fetch (legacy, quotas):** search-ranked, portrait orientation,
+    ≥1600 px source, re-encoded to 1440 px q78. Retained for bulk drafts only;
+    packs it produced have historically required manual weeding afterward.
 - Verify license per image at ingest; store attribution + license URL in the pack's
   manifest (JSON). Manifests live in-repo; `./gradlew :app:checkCreativeLicenses`
   fails the build on any missing field, duplicate Unsplash ID, or missing file.
