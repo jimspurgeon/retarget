@@ -36,3 +36,6 @@ google-services.json
 # Android Profiling
 *.hprof
 __pycache__/
+.creative-staging/
+# Resumable metadata cache for hand-picked pack ingestion (dev-time only)
+app/src/main/assets/creative-packs/*/.handpicked-meta-cache.json

@@ -4,6 +4,15 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is SemVer-ish
 (`vMAJOR.MINOR.PATCH` — see DEVELOPMENT.md).
 
+## [Unreleased]
+
+### Added
+- Hand-picked creative packs: `fresh-air` (61 images) and `fruit` (60 images),
+  ingested via new `fetch_creatives.py --handpicked` mode. Photos manually
+  curated from Unsplash (quality over search-term relevance, imagery-domains.md
+  anti-pattern 3), re-encoded to 2160 px long edge @ q85 — visually
+  indistinguishable from originals on modern displays.
+
 ## [v0.1.0] - 2026-10-02
 
 ### Phase 0 — Foundation complete

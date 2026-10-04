@@ -17,6 +17,8 @@ Usage:
     python scripts/fetch_creatives.py --theme fresh-air
     python scripts/fetch_creatives.py --all         # every catalog preset
     python scripts/fetch_creatives.py --validate     # validate packs only
+    python scripts/fetch_creatives.py --handpicked fresh-air   # ingest hand-picked
+                                                             # Unsplash downloads
 
 Requires: secrets.properties with UNSPLASH_ACCESS_KEY (see template).
 Network is used ONLY by this dev script, never by the app.
@@ -31,6 +33,7 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -52,6 +55,13 @@ PHOTO_PAGE = "https://api.unsplash.com/photos/"
 MIN_SOURCE_LONG_EDGE = 1600
 TARGET_LONG_EDGE = 1440
 JPEG_QUALITY = 78
+
+# Hand-picked mode: images downloaded manually from unsplash.com are kept
+# near-original. 2160 px long edge exceeds every shipping phone display
+# (4K-phone wallpapers are 2160p), q85 JPEG is visually lossless at that
+# size, and ~1-2 MB/image keeps the APK defensible (user decision, Oct 2026).
+HANDPICKED_LONG_EDGE = 2160
+HANDPICKED_JPEG_QUALITY = 85
 
 # Unsplash search params: rank by relevance, one page at a time.
 PER_PAGE = 30
@@ -131,18 +141,18 @@ def longest_edge(path):
     raise ValueError(f"No SOF marker found in {path}")
 
 
-def recompress(src, dest):
-    """Resize to TARGET_LONG_EDGE and re-encode. Uses Pillow when available;
+def recompress(src, dest, max_edge=TARGET_LONG_EDGE, quality=JPEG_QUALITY):
+    """Resize to max_edge and re-encode. Uses Pillow when available;
     falls back to ffmpeg; refuses to ship un-resized images."""
     try:
         from PIL import Image  # noqa: PLC0415
         with Image.open(src) as img:
             img = img.convert("RGB")
             w, h = img.size
-            scale = TARGET_LONG_EDGE / max(w, h)
+            scale = max_edge / max(w, h)
             if scale < 1:
                 img = img.resize((round(w * scale), round(h * scale)), Image.LANCZOS)
-            img.save(dest, "JPEG", quality=JPEG_QUALITY, optimize=True)
+            img.save(dest, "JPEG", quality=quality, optimize=True)
         return True
     except ImportError:
         pass
@@ -161,6 +171,136 @@ def recompress(src, dest):
 
 def slugify_theme(theme_id):
     return theme_id.replace("-", "_")
+
+
+def parse_handpicked_candidates(filename):
+    """Parse a manual Unsplash download filename like 'jane-doe-Ab12Cd34-unsplash.jpg'.
+
+    Unsplash names downloads '<photographer-slug>-<photo-id>-unsplash.jpg', but the
+    photo ID itself may contain dashes (even leading ones: 'nick-taylor--MpqygIXVzo'
+    has ID '-MpqygIXVzo'), and the photographer slug may be empty or mimic an ID.
+    No local heuristic can split these reliably, so return ALL right-anchored
+    candidates, shortest first; the caller verifies against the API and accepts
+    the first hit. Candidates under 6 chars are dropped (photo IDs are ~10-11).
+    Returns a list of candidate photo IDs (possibly empty).
+    """
+    if not filename.endswith("-unsplash.jpg"):
+        return []
+    base = filename[: -len("-unsplash.jpg")]
+    parts = base.split("-")
+    cands = []
+    for i in range(len(parts) - 1, 0, -1):
+        cand = "-".join(parts[i:])
+        if len(cand) >= 6 and any(ch.isalnum() for ch in cand):
+            cands.append(cand)
+    return cands
+
+
+def handpicked_pack(theme_id, key, ledger, dry_run=False):
+    """Ingest a directory of hand-picked Unsplash downloads (user decision,
+    Oct 2026: manual curation beats search-term relevance for visual quality;
+    see imagery-domains.md anti-pattern 3).
+
+    Files arrive as full-resolution '<slug>-<id>-unsplash.jpg' downloads. For each:
+      1. Generate right-anchored photo-ID candidates from the filename and accept
+         the first that resolves via the API (resumable via a sidecar cache, with
+         404s negatively cached, so an interrupted run doesn't re-burn the 50
+         req/hr demo rate limit).
+      2. Re-encode to HANDPICKED_LONG_EDGE @ HANDPICKED_JPEG_QUALITY in place.
+      3. Append to the manifest and the never-reuse ledger.
+
+    Existing images with the same filename are skipped, so the mode is safe to
+    re-run after adding more photos to the directory.
+    """
+    pack_dir = os.path.join(ASSETS_DIR, slugify_theme(theme_id))
+    os.makedirs(pack_dir, exist_ok=True)
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    cache_path = os.path.join(pack_dir, ".handpicked-meta-cache.json")
+
+    if os.path.isfile(manifest_path):
+        with open(manifest_path, encoding="utf-8") as fh:
+            manifest = json.load(fh)
+    else:
+        manifest = {"packId": theme_id, "images": []}
+    known_files = {img["file"] for img in manifest["images"]}
+
+    cache = {}
+    if os.path.isfile(cache_path):
+        with open(cache_path, encoding="utf-8") as fh:
+            cache = json.load(fh)
+
+    added = 0
+    photos = sorted(f for f in os.listdir(pack_dir) if f.endswith(".jpg"))
+    for fname in photos:
+        if fname in known_files:
+            continue
+        cands = parse_handpicked_candidates(fname)
+        if not cands:
+            print(f"  WARN {fname}: not an Unsplash download filename, skipping")
+            continue
+
+        meta = None
+        pid = None
+        for cand in cands:
+            entry = cache.get(cand)
+            if entry is None:
+                try:
+                    entry = api_get(PHOTO_PAGE + cand, key)
+                except urllib.error.HTTPError as exc:
+                    if exc.code == 404:  # wrong split; try the longer candidate
+                        cache[cand] = {"__404__": True}
+                        save_json(cache_path, cache)
+                        continue
+                    print(f"  ERR {fname}: {cand}: {exc}")
+                    break  # rate limit or server error: resumable, try again later
+                cache[cand] = entry
+                save_json(cache_path, cache)  # checkpoint after every fetch
+            if entry.get("__404__"):
+                continue
+            meta, pid = entry, cand
+            break
+        if meta is None:
+            continue  # warned above, or all candidates missed
+
+        user = meta.get("user") or {}
+        dest = os.path.join(pack_dir, fname)
+        if dry_run:
+            print(f"  would ingest {pid} by {user.get('name') or user.get('username')}")
+            added += 1
+            continue
+        tmp = dest + ".tmp"
+        if not recompress(dest, tmp, max_edge=HANDPICKED_LONG_EDGE, quality=HANDPICKED_JPEG_QUALITY):
+            print(f"  ERR {fname}: re-encode failed")
+            continue
+        os.replace(tmp, dest)
+        w, h = longest_edge(dest)
+        file_hash = hashlib.sha256(open(dest, "rb").read()).hexdigest()
+        manifest["images"].append({
+            "unsplashId": pid,
+            "file": fname,
+            "photographer": user.get("name") or user.get("username"),
+            "photographerUrl": f"https://unsplash.com/@{user.get('username', '')}",
+            "license": "Unsplash License",
+            "licenseUrl": "https://unsplash.com/license",
+            "sourceUrl": f"https://unsplash.com/photos/{pid}",
+            "width": w,
+            "height": h,
+            "sha256": file_hash,
+        })
+        ledger[pid] = theme_id
+        known_files.add(fname)
+        added += 1
+        print(f"  ingested {pid} ({w}x{h}) by {user.get('name') or user.get('username')}")
+
+    if not dry_run and added:
+        manifest["images"].sort(key=lambda im: im["unsplashId"])
+        with open(manifest_path, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(manifest, fh, indent=2)
+            fh.write("\n")
+            save_ledger(ledger)
+        save_json(cache_path, cache)
+    print(f"[{theme_id}] done: {added} added, pack now {len(manifest['images'])} images")
+    return added
 
 
 def fetch_pack(theme_id, keywords_with_quotas, key, ledger, dry_run=False):
@@ -302,11 +442,19 @@ def validate_packs(expected_counts=None):
     return errors
 
 
+def save_json(path, data):
+    """Atomic-ish JSON dump used for resumable sidecar caches."""
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        json.dump(data, fh, indent=2, sort_keys=True)
+        fh.write("\n")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--theme", help="catalog preset id, e.g. fresh-air")
     g.add_argument("--all", action="store_true", help="fetch for all catalog presets")
+    g.add_argument("--handpicked", metavar="THEME", help="ingest hand-picked Unsplash downloads already in the pack dir")
     g.add_argument("--validate", action="store_true", help="validate packs, no network")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -375,8 +523,11 @@ def main():
 
     key = load_secrets()
     ledger = load_ledger()
-    for theme in themes:
-        fetch_pack(theme, THEME_QUOTAS[theme], key, ledger, args.dry_run)
+    if args.handpicked:
+        handpicked_pack(args.handpicked, key, ledger, args.dry_run)
+    else:
+        for theme in themes:
+            fetch_pack(theme, THEME_QUOTAS[theme], key, ledger, args.dry_run)
     errs = validate_packs()
     if errs:
         print("POST-FETCH VALIDATION FAILED:")
