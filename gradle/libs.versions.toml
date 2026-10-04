@@ -18,6 +18,7 @@ hiltNavigationCompose = "1.3.0"
 kotlinxSerialization = "1.9.0"
 room = "2.8.2"
 androidxTestCore = "1.7.0"
+androidxWork = "2.11.0"
 
 [libraries]
 # Compose (versions from BOM)
@@ -43,6 +44,10 @@ androidx-room-runtime = { group = "androidx.room", name = "room-runtime", versio
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+
+# WorkManager (background wallpaper rotation)
+androidx-work-runtime = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "androidxWork" }
+androidx-work-testing = { group = "androidx.work", name = "work-testing", version.ref = "androidxWork" }
 
 # Hilt (DI)
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
