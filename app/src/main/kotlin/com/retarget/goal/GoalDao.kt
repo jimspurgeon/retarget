@@ -31,4 +31,10 @@ interface GoalDao {
 
     @Query("SELECT COUNT(*) FROM goals WHERE active = 1")
     suspend fun activeCount(): Int
+
+    @Query("UPDATE goals SET settingsJson = :settingsJson WHERE id = :id")
+    suspend fun updateSettings(
+        id: Long,
+        settingsJson: String,
+    )
 }

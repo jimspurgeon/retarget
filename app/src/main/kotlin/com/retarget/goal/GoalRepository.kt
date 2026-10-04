@@ -46,5 +46,10 @@ class GoalRepository(
         active: Boolean,
     ) = dao.setActive(id, active)
 
+    suspend fun updateSettings(
+        id: Long,
+        settings: CampaignSettings,
+    ) = dao.updateSettings(id, GoalConverters().settingsToJson(settings))
+
     suspend fun hasAnyActiveGoal(): Boolean = dao.activeCount() > 0
 }
