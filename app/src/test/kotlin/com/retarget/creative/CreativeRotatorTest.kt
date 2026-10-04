@@ -15,6 +15,8 @@ import kotlin.random.Random
 class CreativeRotatorTest {
     private class FakeLedger : ExposureLedger {
         val exposures = mutableListOf<Triple<String, Channel, Long>>()
+        // Map from creativeId to subTheme for diversity calculations
+        val creativeSubThemes = mutableMapOf<String, String>()
 
         override fun recordExposure(
             creativeId: String,
@@ -27,6 +29,20 @@ class CreativeRotatorTest {
         override fun lastShownAt(creativeId: String): Long? = exposuresOf(creativeId).maxOfOrNull { it.third }
 
         override fun timesShown(creativeId: String): Int = exposuresOf(creativeId).size
+
+        override fun totalExposures(): Int = exposures.size
+
+        override fun exposuresBySubTheme(subTheme: String): Int {
+            var count = 0
+            for ((creativeId, _, _) in exposures) {
+                if (creativeSubThemes[creativeId] == subTheme) count++
+            }
+            return count
+        }
+
+        fun registerCreative(creativeId: String, subTheme: String) {
+            creativeSubThemes[creativeId] = subTheme
+        }
 
         private fun exposuresOf(creativeId: String) = exposures.filter { it.first == creativeId }
     }
@@ -112,5 +128,127 @@ class CreativeRotatorTest {
         val picks = (1..20).mapNotNull { rotator.selectNext(pool, ledger, nowMs = 2000L, random = random)?.id }
         // With 6 creatives, a fatigue-aware rotator should not pick c1 in all 20 draws.
         assertTrue(picks.none { it == "c1" } || picks.count { it == "c1" } < 20)
+    }
+
+    @Test
+    fun `diversity factor returns one point zero when no exposures exist`() {
+        val rotator = CreativeRotator()
+        val ledger = FakeLedger()
+        val c = creative("c", subTheme = "theme_a")
+
+        val factor = rotator.computeDiversityFactor(c, ledger)
+        assertEquals(1.0, factor, 0.0001)
+    }
+
+    @Test
+    fun `diversity factor penalizes overrepresented sub-themes`() {
+        val rotator = CreativeRotator()
+        val ledger = FakeLedger()
+
+        // Register creatives with different sub-themes
+        val themeACreative = creative("a", subTheme = "theme_a")
+        val themeBCreative = creative("b", subTheme = "theme_b")
+        ledger.registerCreative("a", "theme_a")
+        ledger.registerCreative("b", "theme_b")
+
+        // Record 4 exposures for theme_a, 1 for theme_b
+        repeat(4) { ledger.recordExposure("a", Channel.WALLPAPER, it * 10_000L) }
+        ledger.recordExposure("b", Channel.WALLPAPER, 50_000L)
+
+        // theme_a should be penalized: 1.0 - 0.4 * (4/5) = 1.0 - 0.32 = 0.68
+        val factorA = rotator.computeDiversityFactor(themeACreative, ledger)
+        assertEquals(0.68, factorA, 0.0001)
+
+        // theme_b should be less penalized: 1.0 - 0.4 * (1/5) = 1.0 - 0.08 = 0.92
+        val factorB = rotator.computeDiversityFactor(themeBCreative, ledger)
+        assertEquals(0.92, factorB, 0.0001)
+    }
+
+    @Test
+    fun `single sub-theme pack still applies diversity factor correctly`() {
+        val rotator = CreativeRotator()
+        val ledger = FakeLedger()
+        val pool = (1..4).map { creative("c$it", subTheme = "single_theme") }
+
+        pool.forEachIndexed { i, creative -> ledger.registerCreative("c${i + 1}", "single_theme") }
+        repeat(4) { ledger.recordExposure("c${it + 1}", Channel.WALLPAPER, it * 10_000L) }
+
+        // All 4 exposures are for the same sub-theme: factor = 1.0 - 0.4 * (4/4) = 0.6
+        val factor = rotator.computeDiversityFactor(pool[0], ledger)
+        assertEquals(0.6, factor, 0.0001)
+    }
+
+    @Test
+    fun `diversity factor promotes spread across sub-themes statistically`() {
+        val rotator = CreativeRotator()
+        val ledger = FakeLedger()
+        
+        // Create a pool with 3 creatives per sub-theme (2 sub-themes = 6 total)
+        val pool = mutableListOf<Creative>()
+        repeat(3) { i ->
+            val c = creative("a$i", subTheme = "theme_a", appeal = 1.0f)
+            pool.add(c)
+            ledger.registerCreative("a$i", "theme_a")
+        }
+        repeat(3) { i ->
+            val c = creative("b$i", subTheme = "theme_b", appeal = 1.1f) // Slightly higher appeal
+            pool.add(c)
+            ledger.registerCreative("b$i", "theme_b")
+        }
+
+        // Simulate 30 draws with seeded randomness
+        val random = Random(seed = 123)
+        val selectionCounts = mutableMapOf<String, Int>().withDefault { 0 }
+        
+        (1..30).forEach { drawNum ->
+            val selected = rotator.selectNext(pool, ledger, nowMs = 100_000L + drawNum * 1000L, random = random)
+            selected?.let {
+                selectionCounts[it.subTheme] = (selectionCounts[it.subTheme] ?: 0) + 1
+                // Record the exposure so diversity factor kicks in
+                ledger.recordExposure(it.id, Channel.WALLPAPER, 100_000L + drawNum * 1000L)
+            }
+        }
+
+        // Without diversity factor, theme_b (higher appeal 1.1 vs 1.0) would dominate.
+        // With diversity, we expect a more balanced distribution.
+        val themeACount = selectionCounts["theme_a"] ?: 0
+        val themeBCount = selectionCounts["theme_b"] ?: 0
+        
+        // Assert that neither theme monopolizes (> 85% of selections would indicate clustering)
+        assertTrue(
+            "Theme A should have at least 15% of selections with diversity factor applied. Got $themeACount/$30",
+            themeACount >= 4
+        )
+        assertTrue(
+            "Theme B should not exceed 85% of selections. Got $themeBCount/$30",
+            themeBCount <= 26
+        )
+    }
+
+    @Test
+    fun `diversity computation is deterministic with same seed`() {
+        val rotator = CreativeRotator()
+        val ledger1 = FakeLedger()
+        val ledger2 = FakeLedger()
+        
+        val pool = listOf(
+            creative("a", subTheme = "theme_a", appeal = 1.0f),
+            creative("b", subTheme = "theme_b", appeal = 1.0f),
+        )
+        pool.forEach { ledger1.registerCreative(it.id, it.subTheme) }
+        pool.forEach { ledger2.registerCreative(it.id, it.subTheme) }
+
+        val random1 = Random(42)
+        val random2 = Random(42)
+        
+        val selections1 = (1..20).mapNotNull { 
+            rotator.selectNext(pool, ledger1, nowMs = 1000L + it * 100L, random = random1)?.subTheme 
+        }
+        val selections2 = (1..20).mapNotNull { 
+            rotator.selectNext(pool, ledger2, nowMs = 1000L + it * 100L, random = random2)?.subTheme 
+        }
+
+        // Same seed should produce identical sequence
+        assertEquals(selections1, selections2)
     }
 }
