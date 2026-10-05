@@ -138,6 +138,15 @@ interface ExposureLedger {
 
     /** Number of exposures for a specific sub-theme. */
     fun exposuresBySubTheme(subTheme: String): Int
+
+    /** Count of exposures for a specific channel. */
+    fun exposuresByChannel(channel: Channel): Int
+
+    /**
+     * Count of exposures for a specific channel since a given timestamp.
+     * Used for daily pacing (e.g., "2/3 today").
+     */
+    fun exposuresTodayByChannel(channel: Channel, startOfDayMs: Long): Int
 }
 
 /** One ledger entry, newest-first view for diversity/analysis windows. */
