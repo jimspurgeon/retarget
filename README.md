@@ -56,3 +56,5 @@ tested. Next up: Phase 3 — “The Agency” (widgets, adaptivity, data export)
 - **Creative fetching (issue #4):** `scripts/fetch_creatives.py` downloads Unsplash images per preset theme, writes per-pack manifests with mandatory license/photographer metadata, and records shipped IDs in `.creative-ledger.json` to ensure nothing ships twice. Requires Python 3.10+, optionally Pillow for recompression (`pip install Pillow`). API key in `secrets.properties` (copy from `secrets.properties.template`). Run `./gradlew :app:checkCreativeLicenses` to validate packs before committing.
 
 - **Quarterly refresh cadence:** Run the fetch script every quarter to expand the image library; it only pulls new IDs (never-duplicates), so each release adds fresh content.
+
+- **Next up (Phase 3 — The Agency):** widgets, lock-screen ticker, data export, on-device adaptivity. See [docs/plans/PHASE3-AGENCY.md](docs/plans/PHASE3-AGENCY.md) for the design doc and milestone breakdown.
