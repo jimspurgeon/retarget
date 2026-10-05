@@ -12,6 +12,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.retarget.creative.Channel
 import com.retarget.creative.Creative
+import com.retarget.creative.CreativeImageCache
 import com.retarget.creative.CreativeRotator
 import com.retarget.creative.RoomExposureLedger
 import com.retarget.goal.GoalDatabase
@@ -129,24 +130,14 @@ class BundledPackSource(
     }
 
     /**
-     * Resolves the on-disk cache file behind [creative], copying it from APK
-     * assets on first use (asset paths are not filesystem paths — [File] on
-     * an asset-relative path never resolves on device).
+     * Resolves the on-disk cache file behind [creative], using the shared
+     * [CreativeImageCache] helper (PHASE2-CAMPAIGN.md Milestone 2.1).
+     *
+     * DELEGATION: This method delegates to CreativeImageCache.cachedFileFor()
+     * to ensure consistent caching behavior across all channels.
      */
     fun imageFileFor(creative: Creative): File? {
-        val cacheFile = File(context.cacheDir, "creative-cache/${creative.imagePath}")
-        if (cacheFile.isFile) return cacheFile
-        return try {
-            val assetStream = context.assets.open(creative.imagePath)
-            cacheFile.parentFile?.mkdirs()
-            assetStream.use { input ->
-                cacheFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            cacheFile
-        } catch (e: Exception) {
-            Log.w("BundledPackSource", "Failed to cache asset ${creative.imagePath}", e)
-            null
-        }
+        return CreativeImageCache.cachedFileFor(creative, context)
     }
 
     private fun loadPack(packId: String): List<Creative> {
