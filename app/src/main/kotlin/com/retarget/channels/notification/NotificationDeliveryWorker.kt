@@ -1,0 +1,249 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * Retarget — turning advertising's own toolbox toward your goals.
+ * Copyright (C) 2026 Jim Spurgeon. For license text see LICENSE.
+ */
+
+package com.retarget.channels.notification
+
+import android.content.Context
+import android.app.PendingIntent
+import android.util.Log
+import androidx.work.CoroutineWorker
+import androidx.work.WorkerParameters
+import com.retarget.creative.Channel
+import com.retarget.creative.Creative
+import com.retarget.creative.CreativeImageCache
+import com.retarget.creative.CreativeRotator
+import com.retarget.creative.RoomExposureLedger
+import com.retarget.goal.GoalDatabase
+import com.retarget.goal.PresetCatalog
+import com.retarget.scheduler.NudgeScheduler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import java.io.File
+
+/**
+ * One notification delivery cycle (Phase 2, Milestone 2.4).
+ *
+ * This class mirrors the WallpaperRotationWorker pattern:
+ * - Pulls active goals with notification enabled
+ * - Uses NudgeScheduler to compute the highest-priority slot
+ * - Delivers via NotificationChannel
+ * - Records exposure
+ * - Schedules next slot
+ *
+ * Construction by WorkManager; dependencies sourced from GoalDatabase and assets.
+ */
+class NotificationDeliveryWorker(
+    appCtx: Context,
+    params: WorkerParameters,
+) : CoroutineWorker(appCtx, params) {
+    private val db = GoalDatabase.get(applicationContext)
+    private val ledger = RoomExposureLedger(db.exposureDao())
+    private val rotator = CreativeRotator()
+    private val notificationChannel = NotificationChannel(applicationContext)
+    private val packSource = BundledPackSource(applicationContext)
+
+    override suspend fun doWork(): Result =
+        withContext(Dispatchers.IO) {
+            Log.d(TAG, "Starting notification delivery worker")
+
+            // Check quiet hours first
+            val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+            if (!com.retarget.scheduler.WallpaperRotationPolicy.shouldRotateNow(hour)) {
+                Log.i(TAG, "Quiet hours active (hour=$hour); skipping notification")
+                return@withContext Result.success()
+            }
+
+            // Get active goals with notifications enabled
+            val activeGoals = db.goalDao().observeActive().first()
+                .filter { it.settings.notificationEnabled }
+
+            if (activeGoals.isEmpty()) {
+                Log.i(TAG, "No active goals with notification enabled; nothing to do")
+                return@withContext Result.success()
+            }
+
+            // Compute slots using NudgeScheduler
+            val now = System.currentTimeMillis()
+            val slots = NudgeScheduler.computeSlots(activeGoals, now, ledger)
+
+            if (slots.isEmpty()) {
+                Log.i(TAG, "No slots computed for active goals")
+                return@withContext Result.success()
+            }
+
+            // Pick highest-priority slot
+            val slot = slots.first()
+            val goal = activeGoals.find { it.id == slot.goalId }
+
+            if (goal == null) {
+                Log.w(TAG, "Goal ${slot.goalId} not found; retrying later")
+                return@withContext Result.retry()
+            }
+
+            // Get creative candidates for this goal
+            val candidates = packSource.creativesFor(listOf(goal))
+
+            if (candidates.isEmpty()) {
+                Log.w(TAG, "No creative candidates for goal ${goal.id}; retrying later")
+                return@withContext Result.retry()
+            }
+
+            // Score and select creative (may differ from slot's creative due to fatigue)
+            val selected = rotator.selectNext(candidates, ledger, now)
+                ?: run {
+                    Log.i(TAG, "Rotator returned no selection")
+                    return@withContext Result.success()
+                }
+
+            // Prepare notification action intents
+            val actions = NotificationActions(
+                checkInIntent = PendingIntent.getBroadcast(
+                    applicationContext,
+                    selected.id.hashCode(),
+                    android.content.Intent("RETARGET_CHECKIN").apply {
+                        putExtra("GOAL_ID", goal.id)
+                        putExtra("CREATIVE_ID", selected.id)
+                    },
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+                snooze2hIntent = PendingIntent.getBroadcast(
+                    applicationContext,
+                    selected.id.hashCode() + 1,
+                    android.content.Intent("RETARGET_SNOOZE").apply {
+                        putExtra("GOAL_ID", goal.id)
+                        putExtra("CREATIVE_ID", selected.id)
+                    },
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+                fewerLikeThisIntent = PendingIntent.getBroadcast(
+                    applicationContext,
+                    selected.id.hashCode() + 2,
+                    android.content.Intent("RETARGET_FEWER").apply {
+                        putExtra("GOAL_ID", goal.id)
+                        putExtra("CREATIVE_ID", selected.id)
+                    },
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+
+            // Build and deliver notification
+            val spec = NotificationSpec(
+                goalId = goal.id,
+                creative = selected,
+                title = PresetCatalog.byId(goal.presetId)?.displayName ?: goal.displayName,
+                copyLine = selected.copyPool.random(),
+                actions = actions,
+            )
+
+            val notificationId = (goal.id * 1000 + (now / 1000)).toInt()
+            val delivered = notificationChannel.deliver(spec, notificationId)
+
+            if (!delivered) {
+                Log.w(TAG, "Notification delivery failed for goal ${goal.id}; retrying later")
+                return@withContext Result.retry()
+            }
+
+            // Record exposure
+            ledger.recordExposure(selected.id, selected.subTheme, Channel.NOTIFICATION, now)
+            Log.i(TAG, "Notification delivered: goal=${goal.id}, creative=${selected.id}")
+
+            // Schedule next slot
+            val nextSlot = NudgeScheduler.rescheduleNotification(
+                goalId = goal.id,
+                creative = selected,
+                settings = goal.settings,
+                ledger = ledger,
+                nowMs = now,
+            )
+
+            if (nextSlot != null) {
+                val delay = NudgeScheduler.computeInitialDelay(nextSlot.scheduledTimeMs, now)
+                Log.d(TAG, "Next slot scheduled in ${delay / 1000 / 60} minutes")
+            } else {
+                Log.d(TAG, "No more slots today for goal ${goal.id}")
+            }
+
+            Result.success()
+        }
+
+    companion object {
+        private const val TAG = "NotificationDeliveryWorker"
+    }
+}
+
+/**
+ * Bundled creative pack source for notification channel.
+ * Mirrors BundledPackSource from WallpaperRotationWorker with minor adaptations.
+ */
+class BundledPackSource(
+    private val context: Context,
+) {
+    /** Packs bundled in assets, mapped to the goal themes they serve. */
+    private val packThemes: Map<String, com.retarget.creative.GoalTheme> =
+        mapOf(
+            "fresh_air" to com.retarget.creative.GoalTheme.NATURE_TIME,
+            "fruit" to com.retarget.creative.GoalTheme.PLANT_BASED_WHOLE_FOODS,
+        )
+
+    fun creativesFor(goals: List<com.retarget.goal.GoalEntity>): List<Creative> {
+        val wantedThemes = goals.mapNotNull { PresetCatalog.byId(it.presetId)?.goalTheme }.toSet()
+        if (wantedThemes.isEmpty()) return emptyList()
+        return packThemes
+            .filterValues { it in wantedThemes }
+            .keys
+            .flatMap { packId -> loadPack(packId) }
+    }
+
+    fun imageFileFor(creative: Creative): File? {
+        return CreativeImageCache.cachedFileFor(creative, context)
+    }
+
+    private fun loadPack(packId: String): List<Creative> {
+        val manifestJson = try {
+            context.assets.open("$PACKS_DIR/$packId/manifest.json")
+                .bufferedReader()
+                .use { it.readText() }
+        } catch (e: Exception) {
+            Log.w(TAG, "No manifest for pack '$packId'", e)
+            return emptyList()
+        }
+
+        val manifest = json.decodeFromString(PackManifest.serializer(), manifestJson)
+        return manifest.images.map { entry ->
+            Creative(
+                id = "${packId}/${entry.unsplashId}",
+                packId = packId,
+                goalTheme = packThemes[packId] ?: com.retarget.creative.GoalTheme.GENERAL_WELLNESS,
+                subTheme = entry.subTheme ?: packId,
+                copyPool = emptyList(),
+                imagePath = "$PACKS_DIR/$packId/${entry.file}",
+                attribution = entry.photographer,
+                licenseUrl = entry.licenseUrl,
+            )
+        }
+    }
+
+    @kotlinx.serialization.Serializable
+    private data class PackManifest(
+        val packId: String,
+        val images: List<PackImage>,
+    )
+
+    @kotlinx.serialization.Serializable
+    private data class PackImage(
+        val unsplashId: String,
+        val file: String,
+        val photographer: String? = null,
+        val licenseUrl: String,
+        val subTheme: String? = null,
+    )
+
+    companion object {
+        private const val PACKS_DIR = "creative-packs"
+        private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+    }
+}
