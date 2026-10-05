@@ -6,7 +6,7 @@ You know how ads follow you around the internet — promoting someone else's goa
 Retarget flips that: you're the advertiser now, and the product is the life you
 actually want. Your phone's wallpaper becomes a billboard *for your goals*.
 
-[![Phase: 0 — Foundation](https://img.shields.io/badge/phase-0%20Foundation-blue)]()
+[![Phase: 2 — The Campaign](https://img.shields.io/badge/phase-2%20The%20Campaign-brightgreen)]()
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
 
 ## What it does
@@ -30,15 +30,17 @@ paced to stay pleasant — never nagging. See
 
 ## Status
 
-**Phase 0 — Foundation.** The Gradle build, app skeleton, and CI pipeline now
-exist and pass (see [DEVELOPMENT.md](DEVELOPMENT.md#feature-phases) for the roadmap).
+**Phase 2 complete — “The Campaign.”** Multi-channel nudge delivery (wallpaper +
+image-led notifications with check-ins and transparency controls) is merged and
+tested. Next up: Phase 3 — “The Agency” (widgets, adaptivity, data export). See
+[DEVELOPMENT.md](DEVELOPMENT.md#feature-phases) for the roadmap.
 
 | Phase | Theme | Status |
 |---|---|---|
 | 0 | Foundation (repo, CI, docs) | ✅ Complete — v0.1.0 released |
-| 1 | MVP "The Billboard" (wallpaper engine) | 🚧 In progress — Goal wizard shipped, engine core done |
-| 2 | "The Campaign" (notifications + scheduler) | Planned |
-| 3 | "The Agency" (adaptivity, widgets, bundles) | Planned |
+| 1 | MVP "The Billboard" (wallpaper engine) | ✅ Complete — Goal wizard + wallpaper engine shipped |
+| 2 | "The Campaign" (notifications + scheduler) | ✅ Complete — v0.3.0 released |
+| 3 | "The Agency" (adaptivity, widgets, bundles) | 🚧 Next — Planning phase |
 | 4 | Polish & community | Planned |
 
 ## Getting involved
@@ -54,3 +56,5 @@ exist and pass (see [DEVELOPMENT.md](DEVELOPMENT.md#feature-phases) for the road
 - **Creative fetching (issue #4):** `scripts/fetch_creatives.py` downloads Unsplash images per preset theme, writes per-pack manifests with mandatory license/photographer metadata, and records shipped IDs in `.creative-ledger.json` to ensure nothing ships twice. Requires Python 3.10+, optionally Pillow for recompression (`pip install Pillow`). API key in `secrets.properties` (copy from `secrets.properties.template`). Run `./gradlew :app:checkCreativeLicenses` to validate packs before committing.
 
 - **Quarterly refresh cadence:** Run the fetch script every quarter to expand the image library; it only pulls new IDs (never-duplicates), so each release adds fresh content.
+
+- **Next up (Phase 3 — The Agency):** widgets, lock-screen ticker, data export, on-device adaptivity. See [docs/plans/PHASE3-AGENCY.md](docs/plans/PHASE3-AGENCY.md) for the design doc and milestone breakdown.
