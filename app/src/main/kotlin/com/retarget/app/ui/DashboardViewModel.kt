@@ -54,8 +54,7 @@ class DashboardViewModel(
             .map { goals ->
                 val startOfDayMs = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli()
 
-                val totalWallpaperToday =
-                    goals.sumOf { _ -> ledger.exposuresTodayByChannel(Channel.WALLPAPER, startOfDayMs) }
+                val totalWallpaperToday = ledger.exposuresTodayByChannel(Channel.WALLPAPER, startOfDayMs)
                 // Aggregate target is sum across all goals
                 val aggregateTarget = goals.sumOf { it.settings.wallpaperTargetsPerDay }
 
@@ -72,10 +71,7 @@ class DashboardViewModel(
             .map { goals ->
                 val startOfDayMs = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli()
 
-                val totalNotificationToday =
-                    goals.sumOf { _ ->
-                        ledger.exposuresTodayByChannel(Channel.NOTIFICATION, startOfDayMs)
-                    }
+                val totalNotificationToday = ledger.exposuresTodayByChannel(Channel.NOTIFICATION, startOfDayMs)
                 // Aggregate target is sum across all goals
                 val aggregateTarget = goals.sumOf { it.settings.notificationTargetsPerDay }
 

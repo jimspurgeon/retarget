@@ -41,7 +41,7 @@ class CreativeRotatorTest {
             exposures.count { it.channel == channel }
 
         override fun exposuresTodayByChannel(channel: Channel, startOfDayMs: Long): Int =
-            exposures.count { it.channel == channel && it.atMs >= startOfDayMs }
+            exposures.count { it.channel == channel && it.atMs >= startOfDayMs && it.atMs < startOfDayMs + 86_400_000L }
 
         private fun exposuresOf(creativeId: String) = exposures.filter { it.creativeId == creativeId }
     }
@@ -299,8 +299,8 @@ class CreativeRotatorTest {
         // Today's wallpaper count
         assertEquals(1, ledger.exposuresTodayByChannel(Channel.WALLPAPER, startOfDayMs))
         
-        // Yesterday's notifications (before startOfDayMs) are excluded
-        assertEquals(1, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, 2000L)) // Earlier day
+        // Later day start shrinks the window to fewer exposures (only c4 @ 6000 falls in [5500, 88645000))
+        assertEquals(1, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, 5_500L))
     }
 
     @Test

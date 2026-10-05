@@ -22,6 +22,7 @@ import java.io.File
  */
 object CreativeImageCache {
 
+    private const val TAG = "CreativeImageCache"
     private const val CACHE_SUBDIR = "creative-cache"
 
     /**
@@ -74,9 +75,5 @@ object CreativeImageCache {
         } else {
             true // Already clear
         }
-    }
-
-    companion object {
-        private const val TAG = "CreativeImageCache"
     }
 }

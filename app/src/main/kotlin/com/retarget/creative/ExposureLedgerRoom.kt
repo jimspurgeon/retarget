@@ -69,10 +69,11 @@ interface ExposureDao {
     fun exposuresByChannel(channel: Channel): Int
 
     /**
-     * Count of exposures for a specific channel since a given timestamp.
-     * Used for daily pacing (e.g., "2/3 today").
+     * Count of exposures for a specific channel within the day starting at
+     * [startOfDayMs] (window [startOfDayMs, startOfDayMs + 24h)). Bounded so
+     * past-day counts do not grow as future days accumulate rows.
      */
-    @Query("SELECT COUNT(*) FROM exposures WHERE channel = :channel AND atMs >= :startOfDayMs")
+    @Query("SELECT COUNT(*) FROM exposures WHERE channel = :channel AND atMs >= :startOfDayMs AND atMs < :startOfDayMs + 86400000")
     fun exposuresTodayByChannel(channel: Channel, startOfDayMs: Long): Int
 }
 

@@ -8,6 +8,7 @@ package com.retarget.channels.notification
 
 import android.app.NotificationManager
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.test.core.app.ApplicationProvider
 import com.retarget.creative.Channel
@@ -20,6 +21,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 
 /**
@@ -43,6 +45,8 @@ class NotificationChannelTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        // Grant POST_NOTIFICATIONS so deliver() passes the permission gate under Robolectric (SDK 33 defaults it to DENIED)
+        Shadows.shadowOf(context as android.app.Application).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
         notificationChannel = NotificationChannel(context)
     }
 

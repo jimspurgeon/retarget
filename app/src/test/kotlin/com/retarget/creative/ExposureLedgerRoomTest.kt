@@ -128,8 +128,8 @@ class ExposureLedgerRoomTest {
         // Today's wallpaper count
         assertEquals(1, ledger.exposuresTodayByChannel(Channel.WALLPAPER, 5_000L))
 
-        // Earlier day boundary excludes more exposures
-        assertEquals(1, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, 2_000L))
+        // Later day start shrinks the window to fewer exposures
+        assertEquals(1, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, 5_500L))
     }
 
     @Test

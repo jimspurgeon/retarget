@@ -10,6 +10,7 @@ import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -133,11 +134,9 @@ class NotificationChannel(
         spec: NotificationSpec,
         largeBitmap: android.graphics.Bitmap?,
     ): Notification {
-        val bigPictureStyle = android.app.Notification.BigPictureStyle()
-            .setLargeIcon(largeBitmap ?: defaultLargeIcon())
+        val bigPictureStyle = NotificationCompat.BigPictureStyle()
             .bigPicture(largeBitmap)
             .setSummaryText(spec.copyLine)
-            .setContentTitle(spec.title)
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
@@ -150,13 +149,6 @@ class NotificationChannel(
             .addAction(buildSnoozeAction(spec.actions.snooze2hIntent))
             .addAction(buildFewerAction(spec.actions.fewerLikeThisIntent))
             .build()
-    }
-
-    private fun defaultLargeIcon(): android.graphics.drawable.Icon {
-        return android.graphics.drawable.Icon.createWithResource(
-            context,
-            android.R.drawable.ic_menu_gallery,
-        )
     }
 
     private fun buildCheckInAction(pendingIntent: PendingIntent): NotificationCompat.Action {

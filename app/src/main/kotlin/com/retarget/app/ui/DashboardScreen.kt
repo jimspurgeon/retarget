@@ -50,9 +50,9 @@ fun DashboardScreen(
     onNavigateToSettings: () -> Unit = {},
 ) {
     val wallpaperPacing by (viewModel?.wallpaperPacingSummary ?: MutableStateFlow(DailyPacingSummary(0, 0)))
-        .collectAsState()
+        .collectAsState(initial = DailyPacingSummary(0, 0))
     val notificationPacing by (viewModel?.notificationPacingSummary ?: MutableStateFlow(DailyPacingSummary(0, 0)))
-        .collectAsState()
+        .collectAsState(initial = DailyPacingSummary(0, 0))
 
     Box(
         modifier = Modifier.fillMaxSize(),
