@@ -9,6 +9,8 @@ package com.retarget.goal
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.WorkManagerTestInitHelper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -34,6 +36,10 @@ class GoalRepositoryTest {
     @Before
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        WorkManagerTestInitHelper.initializeTestWorkManager(
+            context,
+            Configuration.Builder().build(),
+        )
         db =
             Room
                 .inMemoryDatabaseBuilder(context, GoalDatabase::class.java)
@@ -115,4 +121,21 @@ class GoalRepositoryTest {
         }
         assertTrue(threw)
     }
+
+    @Test
+    fun `updateSettings persists channel toggles`() =
+        runTest {
+            val id = repo.installPreset("hydration", nowMs = 0)
+            val goal = db.goalDao().byPresetId("hydration")
+            assertNotNull(goal)
+
+            val initialSettings = goal!!.settings
+            assertTrue(initialSettings.wallpaperEnabled)
+
+            val updatedSettings = initialSettings.copy(wallpaperEnabled = false)
+            repo.updateSettings(id, updatedSettings)
+
+            val refreshedGoal = db.goalDao().byPresetId("hydration")
+            assertFalse(refreshedGoal!!.settings.wallpaperEnabled)
+        }
 }

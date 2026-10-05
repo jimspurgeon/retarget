@@ -14,12 +14,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.retarget.app.ui.DashboardScreen
+import com.retarget.app.ui.SettingsScreen
 import com.retarget.app.ui.onboarding.OnboardingScreen
 import com.retarget.goal.GoalRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -62,10 +66,30 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun Root(rootViewModel: RootViewModel = hiltViewModel()) {
-    val hasGoals by rootViewModel.hasGoals.collectAsState()
-    if (hasGoals) {
-        DashboardScreen()
-    } else {
-        OnboardingScreen(onFinished = { /* hasGoals flips via Flow; nothing to do */ })
+    val hasGoals = rootViewModel.hasGoals.collectAsState(initial = false)
+    val navController = rememberNavController()
+
+    NavHost(navController = navController, startDestination = getStartDestination(hasGoals.value)) {
+        composable("onboarding") {
+            OnboardingScreen(
+                onFinished = {
+                    // Navigation will re-route automatically when hasGoals flips
+                },
+            )
+        }
+        composable("dashboard") {
+            DashboardScreen(
+                onNavigateToSettings = {
+                    navController.navigate("settings")
+                },
+            )
+        }
+        composable("settings") {
+            SettingsScreen()
+        }
     }
 }
+
+@Composable
+private fun getStartDestination(hasGoals: Boolean): String =
+    if (hasGoals) "dashboard" else "onboarding"

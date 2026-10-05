@@ -7,11 +7,17 @@ All notable changes to this project are documented here. Format loosely follows
 ## [Unreleased]
 
 ### Added
-- Hand-picked creative packs: `fresh-air` (61 images) and `fruit` (60 images),
-  ingested via new `fetch_creatives.py --handpicked` mode. Photos manually
-  curated from Unsplash (quality over search-term relevance, imagery-domains.md
-  anti-pattern 3), re-encoded to 2160 px long edge @ q85 — visually
-  indistinguishable from originals on modern displays.
+- **Phase 1 MVP "The Billboard" progress**:
+  - Goal creation wizard: onboarding screen with 4 preset campaigns (Hydration, Fresh Air, More Fruit, More Vegetables), each with emoji, display name, and blurb.
+  - Settings screen: quiet hours display (22:00-07:00) and per-channel toggles (wallpaper/notification) wired to CampaignSettings.
+  - Navigation flow: Onboarding → Dashboard → Settings via NavHost.
+  - GoalRepository extended with `updateSettings()` for persisting channel preferences.
+  - All UI strings externalized to `strings.xml` (presets, screens, channels, targets).
+  - Hand-picked creative packs: `fresh-air` (61 images) and `fruit` (60 images),
+    ingested via new `fetch_creatives.py --handpicked` mode. Photos manually
+    curated from Unsplash (quality over search-term relevance, imagery-domains.md
+    anti-pattern 3), re-encoded to 2160 px long edge @ q85 — visually
+    indistinguishable from originals on modern displays.
 
 ## [v0.1.0] - 2026-10-02
 

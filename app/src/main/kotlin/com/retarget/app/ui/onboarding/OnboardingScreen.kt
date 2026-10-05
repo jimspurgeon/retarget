@@ -104,6 +104,21 @@ private fun PresetCard(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
+    val displayNameRes = when (preset.id) {
+        "hydration" -> R.string.preset_hydration_name
+        "fresh-air" -> R.string.preset_fresh_air_name
+        "fruit" -> R.string.preset_fruit_name
+        "vegetables" -> R.string.preset_vegetables_name
+        else -> R.string.preset_fresh_air_name // fallback
+    }
+    val blurbRes = when (preset.id) {
+        "hydration" -> R.string.preset_hydration_blurb
+        "fresh-air" -> R.string.preset_fresh_air_blurb
+        "fruit" -> R.string.preset_fruit_blurb
+        "vegetables" -> R.string.preset_vegetables_blurb
+        else -> R.string.preset_fresh_air_blurb // fallback
+    }
+
     Card(
         modifier =
             Modifier.fillMaxWidth().clickable(enabled = enabled && !installing, onClick = onClick),
@@ -122,9 +137,9 @@ private fun PresetCard(
                 Text(text = preset.emoji, style = MaterialTheme.typography.titleLarge)
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(preset.displayName, style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(displayNameRes), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    preset.blurb,
+                    stringResource(blurbRes),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
