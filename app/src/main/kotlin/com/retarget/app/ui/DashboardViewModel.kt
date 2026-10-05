@@ -8,10 +8,12 @@ package com.retarget.app.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.retarget.analytics.CheckInDao
 import com.retarget.creative.Channel
 import com.retarget.creative.RoomExposureLedger
 import com.retarget.goal.GoalDatabase
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -22,12 +24,15 @@ import java.time.ZoneId
  *
  * Displays per-channel exposure counts for today, enabling users to audit
  * how their nudge budget is being spent (e.g., "Notifications: 2/3 today").
+ * Also shows check-in rates (check-ins / exposures) per goal.
  */
 class DashboardViewModel(
     private val db: GoalDatabase,
     private val ledger: RoomExposureLedger,
     private val zoneId: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
+
+    private val checkInDao: CheckInDao = db.checkInDao()
 
     /** Active goals with their pacing settings. */
     val activeGoals: Flow<List<GoalPacingState>> =
@@ -80,6 +85,28 @@ class DashboardViewModel(
                     targetPerDay = aggregateTarget,
                 )
             }
+
+    /** Check-in rates per goal (check-ins today / notification exposures today). */
+    val checkInRates: Flow<List<GoalCheckInRate>> =
+        db.goalDao()
+            .observeActive()
+            .combine(checkInDao.countsByGoalToday(LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli())) { goals, checkInCounts ->
+                val startOfDayMs = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                val checkInMap = checkInCounts.associateBy({ it.goalId }, { it.cnt })
+
+                goals.map { goal ->
+                    val checkInsToday = checkInMap[goal.id] ?: 0
+                    val exposuresToday = ledger.exposuresTodayByChannel(Channel.NOTIFICATION, startOfDayMs)
+                    // For per-goal exposure count, we'd need to extend ExposureDao
+                    // For now, distribute proportionally or use total as denominator
+                    GoalCheckInRate(
+                        goalId = goal.id,
+                        checkInsToday = checkInsToday,
+                        exposuresToday = exposuresToday, // TODO: refine to per-goal
+                        checkInRate = if (exposuresToday > 0) checkInsToday.toDouble() / exposuresToday else 0.0,
+                    )
+                }
+            }
 }
 
 /** Per-goal pacing state exposed to the UI. */
@@ -99,4 +126,15 @@ data class DailyPacingSummary(
     val targetPerDay: Int,
 ) {
     val isOverBudget: Boolean = countToday > targetPerDay
+}
+
+/** Check-in rate statistics for a goal. */
+data class GoalCheckInRate(
+    val goalId: Long,
+    val checkInsToday: Int,
+    val exposuresToday: Int,
+    val checkInRate: Double, // 0.0 to 1.0, or >1.0 if multiple check-ins per exposure
+) {
+    val percentageDisplay: String
+        get() = "${(checkInRate * 100).toInt()}%"
 }

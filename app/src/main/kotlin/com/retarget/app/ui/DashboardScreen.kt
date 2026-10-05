@@ -53,6 +53,8 @@ fun DashboardScreen(
         .collectAsState(initial = DailyPacingSummary(0, 0))
     val notificationPacing by (viewModel?.notificationPacingSummary ?: MutableStateFlow(DailyPacingSummary(0, 0)))
         .collectAsState(initial = DailyPacingSummary(0, 0))
+    val checkInRates by (viewModel?.checkInRates ?: MutableStateFlow(emptyList()))
+        .collectAsState(initial = emptyList())
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -109,6 +111,26 @@ fun DashboardScreen(
                         count = notificationPacing.countToday,
                         target = notificationPacing.targetPerDay,
                     )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // Check-in rates per goal
+                    if (checkInRates.isNotEmpty()) {
+                        Text(
+                            text = "Check-In Rates",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        checkInRates.forEach { rate ->
+                            CheckInRateRow(
+                                goalId = rate.goalId,
+                                checkInsToday = rate.checkInsToday,
+                                exposuresToday = rate.exposuresToday,
+                                rate = rate.percentageDisplay,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                        }
+                    }
                 }
             } else {
                 Text(
@@ -175,6 +197,51 @@ private fun PacingRow(
             Text(
                 text = "disabled",
                 style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+/**
+ * Row showing check-in rate for a goal.
+ *
+ * @param goalId The goal identifier (for debugging/reference)
+ * @param checkInsToday Number of check-ins today
+ * @param exposuresToday Number of notification exposures today
+ * @param rate Percentage string (e.g., "66%")
+ */
+@Composable
+private fun CheckInRateRow(
+    goalId: Long,
+    checkInsToday: Int,
+    exposuresToday: Int,
+    rate: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "Goal #$goalId",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.width(100.dp),
+        )
+        Text(
+            text = "$checkInsToday/$exposuresToday",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(
+            text = "($rate)",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.width(50.dp),
+        )
+        if (exposuresToday > 0) {
+            Spacer(Modifier.width(8.dp))
+            LinearProgressIndicator(
+                progress = minOf(checkInsToday.toFloat() / exposuresToday, 1.0f),
+                modifier = Modifier
+                    .fillMaxWidth(0.3f)
+                    .height(4.dp),
             )
         }
     }
