@@ -30,6 +30,34 @@
             </intent-filter>
         </activity>
 
+        <!-- Notification action handlers (Milestone 2.6) -->
+        <receiver
+            android:name=".broadcast.FewerNotificationsReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.retarget.action.FEWER_NOTIFICATIONS" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".broadcast.CheckInReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.retarget.action.CHECK_IN" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".broadcast.SnoozeReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.retarget.action.SNOOZE" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

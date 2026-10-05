@@ -7,6 +7,7 @@
 package com.retarget.scheduler
 
 import android.content.Context
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.testing.SynchronousExecutor
@@ -28,6 +29,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.Shadows.shadowOf
 
 /**
  * Integration test for [WallpaperSchedulerManager] verifying that:
@@ -115,6 +117,7 @@ class WallpaperSchedulerManagerIntegrationTest {
         // Deactivate the goal
         repository.setActive(goalId, false)
         kotlinx.coroutines.delay(100)
+        shadowOf(Looper.getMainLooper()).idle()
 
         // Verify scheduler stopped
         workManager = androidx.work.WorkManager.getInstance(context)

@@ -27,6 +27,9 @@ interface GoalDao {
     @Query("SELECT * FROM goals WHERE presetId = :presetId LIMIT 1")
     suspend fun byPresetId(presetId: String): GoalEntity?
 
+    @Query("SELECT * FROM goals WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): GoalEntity?
+
     @Query("UPDATE goals SET active = :active WHERE id = :id")
     suspend fun setActive(
         id: Long,
