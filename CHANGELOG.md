@@ -4,20 +4,43 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is SemVer-ish
 (`vMAJOR.MINOR.PATCH` — see DEVELOPMENT.md).
 
-## [Unreleased]
+## [v0.3.0] - 2026-10-05
 
-### Added
-- **Phase 1 MVP "The Billboard" progress**:
-  - Goal creation wizard: onboarding screen with 4 preset campaigns (Hydration, Fresh Air, More Fruit, More Vegetables), each with emoji, display name, and blurb.
-  - Settings screen: quiet hours display (22:00-07:00) and per-channel toggles (wallpaper/notification) wired to CampaignSettings.
-  - Navigation flow: Onboarding → Dashboard → Settings via NavHost.
-  - GoalRepository extended with `updateSettings()` for persisting channel preferences.
-  - All UI strings externalized to `strings.xml` (presets, screens, channels, targets).
-  - Hand-picked creative packs: `fresh-air` (61 images) and `fruit` (60 images),
-    ingested via new `fetch_creatives.py --handpicked` mode. Photos manually
-    curated from Unsplash (quality over search-term relevance, imagery-domains.md
-    anti-pattern 3), re-encoded to 2160 px long edge @ q85 — visually
-    indistinguishable from originals on modern displays.
+### Phase 2 "The Campaign" — notifications + scheduler
+Multi-channel nudge delivery with strict frequency budgets, transparency, and user control.
+
+**What's new:**
+- Image-led notifications (BigPictureStyle) for user-chosen goals.
+- `NudgeScheduler` engine: fresh-start boosts, cross-channel crowding backoff.
+- Check-in tracking: tap-to-log behavior from notifications.
+- "Why am I seeing this?" transparency on every nudge.
+- Dashboard pacing stats: exposures vs. check-ins per channel.
+- Settings: per-goal channel toggles with immediate WorkManager cancellation.
+
+**Under the hood:**
+- Pure-Kotlin schedulers (testable without Android): `NotificationPolicy`, `NudgeScheduler`.
+- Room DAOs: `CheckInDao`, `ExposureLedger` channel extensions.
+- WorkManager integration: `NotificationDeliveryWorker` schedules subsequent slots.
+- Creative image cache (`CreativeImageCache`) for fast notification rendering.
+- User-testing prep docs in `docs/testing/`.
+
+---
+
+## [v0.2.0] - 2026-10-04
+
+### Phase 1 MVP "The Billboard" — wallpaper engine
+
+First functional release: wallpaper-based nudges for personal goals.
+
+- Goal creation wizard with 4 preset campaigns (Hydration, Fresh Air, More Fruit, More Vegetables).
+- Wallpaper engine: fatigue-aware creative rotation with sub-theme diversity.
+- Exposure ledger (Room) + dashboard campaign state.
+- Settings with quiet hours (22:00–07:00) + channel toggles.
+- Creative packs: `fresh-air` (61 images), `fruit` (60 images) — hand-curated from Unsplash, license metadata validated by `checkCreativeLicenses` gate.
+- Local-first: no INTERNET permission, no analytics.
+- Gatekeeper-reviewed. 64 tests green.
+
+---
 
 ## [v0.1.0] - 2026-10-02
 
