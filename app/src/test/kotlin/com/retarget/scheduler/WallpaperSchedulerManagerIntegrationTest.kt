@@ -105,29 +105,22 @@ class WallpaperSchedulerManagerIntegrationTest {
         val goalId = installGoalWithWallpaper(true)
         kotlinx.coroutines.delay(100)
 
-        // Verify scheduler is running
-        var workManager = androidx.work.WorkManager.getInstance(context)
-        var infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        assertTrue(
-            "Scheduler should run initially",
-            infoList.any { it.state == androidx.work.WorkInfo.State.ENQUEUED || 
-                          it.state == androidx.work.WorkInfo.State.RUNNING }
-        )
+        // Verify scheduler is running (eventually — flow reactions are async)
+        val running = awaitCondition {
+            wallpaperWorkStates().any { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                        it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Scheduler should run initially", running)
 
         // Deactivate the goal
         repository.setActive(goalId, false)
-        kotlinx.coroutines.delay(100)
-        shadowOf(Looper.getMainLooper()).idle()
 
-        // Verify scheduler stopped
-        workManager = androidx.work.WorkManager.getInstance(context)
-        infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        
-        assertTrue(
-            "Scheduler should stop when no wallpaper-enabled goals exist",
-            infoList.all { it.state != androidx.work.WorkInfo.State.ENQUEUED && 
-                           it.state != androidx.work.WorkInfo.State.RUNNING }
-        )
+        // Verify scheduler stopped (eventually — flow reactions are async across observers)
+        val stopped = awaitCondition {
+            wallpaperWorkStates().none { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                         it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Scheduler should stop when no wallpaper-enabled goals exist", stopped)
     }
 
     @Test
@@ -252,4 +245,25 @@ class WallpaperSchedulerManagerIntegrationTest {
         )
         return db.goalDao().insert(entity)
     }
+
+    /**
+     * Waits until [condition] holds or [timeoutMs] elapses.
+     * The scheduler reacts to Room flow emissions asynchronously (multiple observers
+     * may be live), so assertions about WorkManager state are eventually-consistent.
+     */
+    private fun awaitCondition(timeoutMs: Long = 2000, condition: () -> Boolean): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (condition()) return true
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(50)
+        }
+        return condition()
+    }
+
+    private fun wallpaperWorkStates(): List<androidx.work.WorkInfo.State> =
+        androidx.work.WorkManager.getInstance(context)
+            .getWorkInfosByTag("retarget_wallpaper_rotation").get()
+            .map { it.state }
 }
+
