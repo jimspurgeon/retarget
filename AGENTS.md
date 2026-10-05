@@ -21,7 +21,7 @@ issues, commit messages, and pull request descriptions.
 
 ## Core Rules (the one-page version)
 
-Everything below is expanded in §1 through §6. If context is tight, follow this page and
+Everything below is expanded in §1 through §7. If context is tight, follow this page and
 link the specific section before doing anything it governs.
 
 1. **Nothing secret, personal, or proprietary ever enters the repo.** Not in files,
@@ -47,9 +47,15 @@ link the specific section before doing anything it governs.
    blast radius, in both directions. Tier inflation and tier deflation are both
    rejections. (§5.2)
 9. **One logical change per commit.** Feature branches only, never commit to `main`,
-   never rewrite published history, never push unless asked and the report is approved. (§3)
+   never rewrite published history. Pushing follows the gate in §5.1 or a standing
+   approval under §7.3. Conventional commit subjects on every commit, including
+   merges made during integration (`feat: merge <branch> — <summary>`, never bare
+   "Merge <branch>: ..."). (§3)
 10. **Builds, tests, and honest reporting.** Verify what you can, state plainly what
     you could not run, and never claim success without a real command and its output. (§4, §5.4)
+11. **Multi-agent work follows the orchestration protocol.** Parallel workers get
+    self-contained specs with anti-idle instructions; every integration is followed
+    by a full build+test and a gatekeeper review before the human sees the PR. (§7)
 
 ---
 
@@ -135,7 +141,9 @@ intent, raise it in an issue before implementing.
 - **Atomic PRs:** one logical change per PR. Keep them reviewable (< ~400 lines of diff
   where practical). Include *what* and *why* in the description, not just screenshots.
 - **Don't push** unless asked, and when asked, only after the pre-push gate in §5.1 is
-  satisfied. Leave commits local or in a branch for review.
+  satisfied (or a standing approval under §7.3 is in force). Leave commits local or in
+  a branch for review. Merging into `main` always requires the human's explicit
+  action or instruction — no standing approval covers it.
 
 ### Community conduct
 - Be respectful and assume good faith in issues and reviews.
@@ -346,7 +354,8 @@ and often. A change report without all of these sections is incomplete:
   party making the claim. Where the repo has CI configured, verification claims are
   only conclusive when backed by a CI run on the branch. Report the local run
   (commands, exit codes, output tails) as a preview, and link the CI run for
-  confirmation.
+  confirmation. Where CI is not yet configured, an independent gatekeeper re-run (§7.4)
+  is the strongest available corroboration.
 - **Quotes are provisional and sampled.** Every `file:line` quote must be verbatim.
   The human will spot-check a random sample of quotes against the repo. A single
   mismatch between a quoted excerpt and the actual file voids the report and resets
@@ -456,7 +465,93 @@ whether the underlying code is good:
 
 ---
 
-## 6. Review Checklist (run through before every PR)
+## 7. Multi-Agent Orchestration Protocol
+
+When work is coordinated across multiple agent workers (parallel waves, integration
+branches, gatekeeper reviews), the rules in this section layer on top of §1–§5. They
+exist because parallel agents multiply both throughput and failure modes: a protocol
+that works for one careful agent is not sufficient for eight concurrent ones.
+### 7.1 Worker specifications
+
+Every dispatched worker receives a self-contained spec that includes:
+
+- **Binding context:** which docs to read first (this file, DEVELOPMENT.md, relevant
+  design docs), the Java/SDK setup commands, and the exact milestone or task text.
+- **Anti-idle block (verbatim, mandatory):** workers must work continuously, resume
+  immediately if a turn ends prematurely, send `worker_done` only when acceptance
+  criteria are met, and escalate rather than stall. Terse specs cause idle-at-prompt
+  stalls; this block is not optional.
+- **Explicit authorization scope:** what the worker may decide alone (§5.1.1 logging
+  tier) versus what must be escalated. Mid-task permission requests for already-
+  authorized work are over-caution and slow the wave; the spec should pre-authorize
+  everything within the milestone's acceptance criteria.
+- **Hard constraints:** local-first rules (§1, §2), conventional commits, feature
+  branch naming, no pushes by workers unless their spec says otherwise.
+
+### 7.2 Parallelism and build guardrails
+
+- Fill capacity: decompose independent milestones into parallel workers. Validation,
+  review, docs, and planning tasks ride alongside code tasks.
+- **At most one heavyweight Gradle build runs per machine at a time.** Workers queue
+  behind it or do non-build work first. Two concurrent `gradlew` invocations on the
+  same project corrupt caches and produce phantom failures.
+- Integration is a separate step from authorship: worker branches merge onto an
+  integration branch by the coordinator, and **merge collisions are expected** —
+  code that compiled in isolation collides at integration (duplicate helpers,
+  incompatible API shapes, test-fixture drift). The coordinator resolves them, then
+  runs the full build+test gate before anything else proceeds (§4).
+- Workers write tests that pass against *their* understanding; integration must
+  re-verify the *combined* semantics (see: per-channel counting bugs that only
+  manifest when two features share a ledger).
+
+### 7.3 Standing approvals (scope-limited)
+
+The human may grant standing pre-approval for repetitive, low-risk operations:
+
+- **Push + PR creation** after a gatekeeper-approved, build-green integration. This
+  satisfies §5.1's pre-push gate for branch pushes and PR opens only.
+- **Merging into `main` is never covered by standing approval.** Every merge needs
+  the human's explicit action or instruction on that specific PR.
+- Standing approvals are recorded in this file with date and scope, and can be
+  revoked at any time. If any material fact changes (e.g., a gatekeeper verdict
+  reversal), re-present before using the approval again.
+
+### 7.4 Gatekeeper review (pre-human gate)
+
+Before a PR reaches the human, an independent reviewer agent on a stronger model
+  than the workers:
+
+- Re-runs the build and test suite itself; does not trust the coordinator's claims
+  (§5.4 applies recursively — verifier independence matters).
+- Reviews correctness, security, and this file's compliance (especially §1, §2).
+- Posts its verdict on the PR (approve / request-changes) with findings classified
+  blocker / major / minor.
+- Blockers must be fixed and re-verified before the PR is presented to the human.
+  Majors are fixed or explicitly deferred with the human's visibility in the PR
+  body. The gatekeeper cannot approve its own work; it reviews, the coordinator
+  fixes.
+
+The human only sees gatekeeper-approved PRs. This is not to substitute the human's
+judgment (§5 stands) but to ensure that the judgment is spent on genuine merits,
+not on catching mechanical defects.
+
+### 7.5 Stall handling and supervision
+
+- Workers stall in recognizable patterns: idle-at-prompt (terse spec), malformed
+  tool-call emissions (mid-generation termination), or finished-but-unreported.
+  Supervision distinguishes these by checking git activity and dispatch state, not
+  terminal quietness alone — **a quiet terminal with a fresh commit is done, not
+  stalled.** Abandon-and-redispatch only after nudges fail AND no progress evidence
+  exists.
+- A redispatched worker inherits the same spec (with anti-idle block) on a fresh
+  terminal. Work-in-progress from the abandoned attempt is recovered via git stash
+  or branch salvage before the retry starts.
+- Orchestration config and post-mortem lessons live outside the repo (agent skill
+  files); this section is the repo-side contract those tools implement.
+
+---
+
+## 8. Review Checklist (run through before every PR)
 
 - [ ] No secrets, personal data, or proprietary material anywhere in the diff
       (double-check added files, not just edited ones).
@@ -472,6 +567,9 @@ whether the underlying code is good:
       repo (issue text, screenshots, fixture data).
 - [ ] Change report (§5.3) presented with per-item evidence for each box above; a
       bare checkmark is not a completed checklist.
+- [ ] If multi-agent work (§7): integration build+test re-run on the merged branch,
+      gatekeeper verdict posted, and merge-collision fixes documented with root
+      causes (not just "fixed compile errors").
 - [ ] Randomly spot-check at least two quoted excerpts against the repo before
       approving. (This is the human's one standing duty; everything above exists to
       make it sufficient.)
