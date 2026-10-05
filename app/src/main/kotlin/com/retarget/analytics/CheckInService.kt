@@ -28,6 +28,8 @@ class CheckInService : IntentService("CheckInService") {
             return
         }
 
+        // IntentService.onHandleIntent runs on a background worker thread — safe to block on the suspend DAO call
+        kotlinx.coroutines.runBlocking {
         val db = GoalDatabase.get(applicationContext)
         val checkInDao = db.checkInDao()
 
@@ -42,6 +44,7 @@ class CheckInService : IntentService("CheckInService") {
             Log.i(TAG, "Check-in recorded: goalId=$goalId")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to record check-in for goalId=$goalId", e)
+        }
         }
     }
 

@@ -7,14 +7,18 @@
 package com.retarget.analytics
 
 import androidx.room.Room
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.core.app.ApplicationProvider
 import com.retarget.goal.GoalDatabase
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -27,7 +31,8 @@ import java.time.ZoneId
  * - totalCountByGoal returns cumulative count
  * - Day boundary handling (counts reset at midnight)
  */
-@RunWith(AndroidJUnit4::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class CheckInDaoTest {
 
     private lateinit var db: GoalDatabase
@@ -36,7 +41,7 @@ class CheckInDaoTest {
     @Before
     fun setup() {
         db = Room.inMemoryDatabaseBuilder(
-            android.app.Application().applicationContext,
+            ApplicationProvider.getApplicationContext(),
             GoalDatabase::class.java,
         )
             .allowMainThreadQueries()
@@ -50,7 +55,7 @@ class CheckInDaoTest {
     }
 
     @Test
-    fun insert_checkIn_returnsPositiveId() = runTest {
+    fun insert_checkIn_returnsPositiveId() = runBlocking {
         val entity = CheckInEntity(
             goalId = 1L,
             atMs = System.currentTimeMillis(),
@@ -72,7 +77,7 @@ class CheckInDaoTest {
     }
 
     @Test
-    fun countByGoal_incrementsAfterInsert() = runTest {
+    fun countByGoal_incrementsAfterInsert() = runBlocking {
         val startOfDayMs = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val nowMs = System.currentTimeMillis()
 
@@ -86,7 +91,7 @@ class CheckInDaoTest {
     }
 
     @Test
-    fun countByGoal_separatesByGoal() = runTest {
+    fun countByGoal_separatesByGoal() = runBlocking {
         val nowMs = System.currentTimeMillis()
 
         checkInDao.insert(CheckInEntity(goalId = 1L, atMs = nowMs, notes = null))
@@ -101,7 +106,7 @@ class CheckInDaoTest {
     }
 
     @Test
-    fun countByGoal_excludesPreviousDay() = runTest {
+    fun countByGoal_excludesPreviousDay() = runBlocking {
         val todayMs = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val yesterdayMs = todayMs - 86400000L // 24 hours ago
 
@@ -116,7 +121,7 @@ class CheckInDaoTest {
     }
 
     @Test
-    fun totalCountByGoal_returnsCumulativeCount() = runTest {
+    fun totalCountByGoal_returnsCumulativeCount() = runBlocking {
         val yesterdayMs = System.currentTimeMillis() - 86400000L
         val todayMs = System.currentTimeMillis()
 
@@ -130,7 +135,7 @@ class CheckInDaoTest {
     }
 
     @Test
-    fun countsByGoalToday_groupsCorrectly() = runTest {
+    fun countsByGoalToday_groupsCorrectly() = runBlocking {
         val startOfDayMs = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         checkInDao.insert(CheckInEntity(goalId = 1L, atMs = System.currentTimeMillis(), notes = null))
@@ -139,32 +144,27 @@ class CheckInDaoTest {
 
         val counts = checkInDao.countsByGoalToday(startOfDayMs)
 
-        assertEquals("Should have counts for 2 goals", 2, counts.size)
+        val countsList = counts.first()
+        assertEquals("Should have counts for 2 goals", 2, countsList.size)
 
-        val goal1Count = counts.find { it.goalId == 1L }?.cnt ?: 0
-        val goal2Count = counts.find { it.goalId == 2L }?.cnt ?: 0
+        val goal1Count = countsList.find { it.goalId == 1L }?.cnt ?: 0
+        val goal2Count = countsList.find { it.goalId == 2L }?.cnt ?: 0
 
         assertEquals("Goal 1 should have 2 check-ins", 2, goal1Count)
         assertEquals("Goal 2 should have 1 check-in", 1, goal2Count)
     }
 
     @Test
-    fun checkInEntity_notesAreOptional() = runTest {
+    fun checkInEntity_notesAreOptional() = runBlocking {
+        val startOfDayMs = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val entityWithNotes = CheckInEntity(goalId = 1L, atMs = System.currentTimeMillis(), notes = "Test note")
         val entityWithoutNotes = CheckInEntity(goalId = 1L, atMs = System.currentTimeMillis(), notes = null)
 
         checkInDao.insert(entityWithNotes)
         checkInDao.insert(entityWithoutNotes)
 
-        val count = checkInDao.countByGoal(1L, System.currentTimeMillis())
+        val count = checkInDao.countByGoal(1L, startOfDayMs)
 
         assertEquals("Both check-ins should be counted regardless of notes", 2, count)
     }
-}
-
-/**
- * Simple test runner for suspending functions in JUnit tests.
- */
-private suspend fun runTest(block: suspend () -> Unit) {
-    block()
 }

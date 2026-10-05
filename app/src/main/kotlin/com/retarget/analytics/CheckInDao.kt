@@ -11,6 +11,7 @@ import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -60,13 +61,14 @@ interface CheckInDao {
     fun totalCountByGoal(goalId: Long): Int
 
     /**
-     * Count check-ins for all active goals within today.
+     * Count check-ins for all active goals within today (reactive; recomputes when
+     * the table changes so dashboards stay live).
      *
      * @param startOfDayMs Milliseconds since epoch for the start of today.
-     * @return Map of goalId to check-in count for today.
+     * @return Flow of goalId to check-in count for today.
      */
     @Query("SELECT goalId, COUNT(*) as cnt FROM check_ins WHERE atMs >= :startOfDayMs AND atMs < :startOfDayMs + 86400000 GROUP BY goalId")
-    fun countsByGoalToday(startOfDayMs: Long): List<CheckInCount>
+    fun countsByGoalToday(startOfDayMs: Long): Flow<List<CheckInCount>>
 }
 
 /**

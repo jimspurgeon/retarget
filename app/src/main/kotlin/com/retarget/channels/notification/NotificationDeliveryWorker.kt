@@ -151,17 +151,16 @@ class NotificationDeliveryWorker(
             ledger.recordExposure(selected.id, selected.subTheme, Channel.NOTIFICATION, now)
             Log.i(TAG, "Notification delivered: goal=${goal.id}, creative=${selected.id}")
 
-            // Schedule next slot
-            val nextSlot = NudgeScheduler.rescheduleNotification(
-                goalId = goal.id,
-                creative = selected,
-                settings = goal.settings,
-                ledger = ledger,
-                nowMs = now,
-            )
+            // Schedule next slot: recompute with the freshly-updated ledger and take
+            // the next notification slot for this goal (if any remains within budget)
+            val nextSlot = NudgeScheduler.computeSlots(
+                listOf(goal),
+                now,
+                ledger,
+            ).firstOrNull { it.goalId == goal.id && it.channel == Channel.NOTIFICATION }
 
             if (nextSlot != null) {
-                val delay = NudgeScheduler.computeInitialDelay(nextSlot.scheduledTimeMs, now)
+                val delay = (nextSlot.scheduledTimeMs - now).coerceAtLeast(0)
                 Log.d(TAG, "Next slot scheduled in ${delay / 1000 / 60} minutes")
             } else {
                 Log.d(TAG, "No more slots today for goal ${goal.id}")
@@ -244,6 +243,7 @@ class BundledPackSource(
 
     companion object {
         private const val PACKS_DIR = "creative-packs"
+        private const val TAG = "NotificationPackSource"
         private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
     }
 }
