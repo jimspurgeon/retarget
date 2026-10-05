@@ -35,4 +35,22 @@
     <string name="preset_fruit_blurb">Fruit: the other fast food.</string>
     <string name="preset_vegetables_name">More Vegetables</string>
     <string name="preset_vegetables_blurb">Redesigned by 400 million years of R&amp;D.</string>
+
+    <!-- Transparency screen -->
+    <string name="transparency_title">Why am I seeing this?</string>
+    <string name="transparency_goal_label">Goal</string>
+    <string name="transparency_technique_label">Why now?</string>
+    <string name="transparency_budget_label">Daily Budget</string>
+    <string name="transparency_budget_status">%1$d/%2$d notifications today</string>
+    <string name="transparency_budget_used">%1$d of %2$d used</string>
+    <string name="transparency_budget_exhausted">Limit reached</string>
+    <string name="transparency_budget_warning">Approaching limit</string>
+    <string name="transparency_budget_ok">Plenty remaining</string>
+    <string name="transparency_settings_link">Adjust in Settings</string>
+    <string name="transparency_settings_hint">Change frequency or turn off anytime</string>
+
+    <!-- Toast messages -->
+    <string name="toast_notifications_paused">Notification nudges paused. Tap to re-enable.</string>
+    <string name="toast_notifications_reduced">Reduced to %d/day. Change in Settings anytime.</string>
+    <string name="toast_notifications_resumed">Notification nudges re-enabled.</string>
 </resources>
