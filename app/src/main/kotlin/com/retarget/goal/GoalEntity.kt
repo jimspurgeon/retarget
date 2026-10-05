@@ -10,6 +10,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverter
+import com.retarget.creative.Channel
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -29,13 +30,19 @@ data class GoalEntity(
         get() = GoalConverters.json.decodeFromString(settingsJson)
 }
 
-/** Room converters for the embedded settings JSON. */
+/** Room converters for the embedded settings JSON and Channel enum. */
 class GoalConverters {
     @TypeConverter
     fun settingsToJson(settings: CampaignSettings): String = Json.encodeToString(settings)
 
     @TypeConverter
     fun jsonToSettings(json: String): CampaignSettings = Json.decodeFromString(json)
+
+    @TypeConverter
+    fun channelToInt(channel: Channel): Int = channel.ordinal
+
+    @TypeConverter
+    fun intToChannel(index: Int): Channel = Channel.values()[index]
 
     companion object {
         val json = Json { ignoreUnknownKeys = true }

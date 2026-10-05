@@ -22,6 +22,10 @@
     <string name="settings_channel_notification">Notification</string>
     <string name="settings_icon_content_description">Settings</string>
 
+    <!-- Dashboard pacing -->
+    <string name="dashboard_pacing_wallpaper">Wallpaper: %1$d/%2$d today</string>
+    <string name="dashboard_pacing_notification">Notifications: %1$d today</string>
+
     <!-- Preset campaigns -->
     <string name="preset_hydration_name">Hydration</string>
     <string name="preset_hydration_blurb">Your body\'s oldest brand loyalty program.</string>
