@@ -11,6 +11,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.retarget.analytics.CheckInDao
+import com.retarget.analytics.CheckInEntity
 import com.retarget.creative.ExposureDao
 import com.retarget.creative.ExposureEntity
 
@@ -20,8 +22,9 @@ import com.retarget.creative.ExposureEntity
         ExposureEntity::class,
         com.retarget.creative.CreativePackEntity::class,
         com.retarget.creative.CreativeEntity::class,
+        CheckInEntity::class,
     ],
-    version = 2,
+    version = 3,
 )
 @TypeConverters(GoalConverters::class)
 abstract class GoalDatabase : RoomDatabase() {
@@ -30,6 +33,8 @@ abstract class GoalDatabase : RoomDatabase() {
     abstract fun exposureDao(): ExposureDao
 
     abstract fun creativePackDao(): com.retarget.creative.CreativePackDao
+
+    abstract fun checkInDao(): CheckInDao
 
     companion object {
         @Volatile

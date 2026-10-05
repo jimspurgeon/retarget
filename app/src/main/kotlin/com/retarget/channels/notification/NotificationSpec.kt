@@ -6,6 +6,10 @@
 
 package com.retarget.channels.notification
 
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import com.retarget.analytics.CheckInService
 import com.retarget.creative.Creative
 
 /**
@@ -31,7 +35,32 @@ data class NotificationSpec(
  * all nudges must be reversible and controllable.
  */
 data class NotificationActions(
-    val checkInIntent: android.app.PendingIntent,
-    val snooze2hIntent: android.app.PendingIntent,
-    val fewerLikeThisIntent: android.app.PendingIntent,
+    val checkInIntent: PendingIntent,
+    val snooze2hIntent: PendingIntent,
+    val fewerLikeThisIntent: PendingIntent,
 )
+
+/**
+ * Factory for creating notification action intents.
+ *
+ * Centralizes PendingIntent creation to ensure consistency across the app.
+ */
+object NotificationActionFactory {
+    /**
+     * Create a PendingIntent for the "Check in" action.
+     *
+     * @param context Application context
+     * @param goalId The goal being checked into
+     * @param requestCode Unique request code for this notification
+     * @return PendingIntent that will record a check-in when triggered
+     */
+    fun createCheckInIntent(context: Context, goalId: Long, requestCode: Int): PendingIntent {
+        val intent = CheckInService.createActionIntent(context, goalId)
+        return PendingIntent.getService(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+}
