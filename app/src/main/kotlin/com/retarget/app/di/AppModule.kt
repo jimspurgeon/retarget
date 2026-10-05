@@ -10,6 +10,7 @@ import android.content.Context
 import androidx.work.WorkManager
 import com.retarget.creative.ExposureDao
 import com.retarget.creative.RoomExposureLedger
+import com.retarget.scheduler.NotificationSchedulerManager
 import com.retarget.scheduler.WallpaperScheduler
 import com.retarget.scheduler.WallpaperSchedulerManager
 import dagger.Module
@@ -72,6 +73,13 @@ object AppModule {
     @Singleton
     fun provideExposureLedger(dao: ExposureDao): RoomExposureLedger = RoomExposureLedger(dao)
 
+    @Provides
+    fun provideExposureDao(db: com.retarget.goal.GoalDatabase): ExposureDao = db.exposureDao()
+
+    @Provides
+    fun provideZoneId(): java.time.ZoneId = java.time.ZoneId.systemDefault()
+
+
     /**
      * Provides WorkManager instance for wallpaper scheduling.
      * Initialized lazily via getInstance()—no direct injection needed,
@@ -100,4 +108,15 @@ object AppModule {
         @ApplicationContext context: Context,
         repository: com.retarget.goal.GoalRepository,
     ): WallpaperSchedulerManager = WallpaperSchedulerManager(context, repository)
+
+    /**
+     * Provides [NotificationSchedulerManager] to bind goal lifecycle to notification scheduler.
+     * Monitors active goals with notification enabled and auto-starts/stops notification delivery.
+     */
+    @Provides
+    @Singleton
+    fun provideNotificationSchedulerManager(
+        @ApplicationContext context: Context,
+        repository: com.retarget.goal.GoalRepository,
+    ): NotificationSchedulerManager = NotificationSchedulerManager(context, repository)
 }

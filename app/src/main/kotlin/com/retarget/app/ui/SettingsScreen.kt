@@ -6,6 +6,8 @@
 
 package com.retarget.app.ui
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -35,6 +38,8 @@ import androidx.lifecycle.viewModelScope
 import com.retarget.app.R
 import com.retarget.goal.CampaignSettings
 import com.retarget.goal.GoalRepository
+import com.retarget.scheduler.NotificationScheduler
+import com.retarget.scheduler.WallpaperScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
@@ -52,6 +57,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
 
     Column(
@@ -85,7 +91,7 @@ fun SettingsScreen(
                     channelName = channel.channelName,
                     enabled = channel.enabled,
                     targetsPerDay = channel.targetsPerDay,
-                    onToggle = { viewModel.toggleChannel(channel.channelName) },
+                    onToggle = { viewModel.toggleChannel(channel.channelName, context) },
                 )
             }
         }
@@ -136,7 +142,11 @@ private fun ChannelToggleCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = channelName,
+                    text = when (channelName) {
+                        "Wallpaper" -> stringResource(R.string.settings_channel_wallpaper)
+                        "Notification" -> stringResource(R.string.settings_channel_notification)
+                        else -> channelName
+                    },
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Spacer(Modifier.height(4.dp))
@@ -167,6 +177,10 @@ data class ChannelSetting(
 /**
  * ViewModel for SettingsScreen.
  * Binds to the active goal's CampaignSettings and exposes channel-level toggles.
+ *
+ * Handles:
+ * - Per-channel toggle with immediate WorkManager cancellation/rescheduling
+ * - Toast feedback for user actions (notifications paused/resumed)
  */
 @HiltViewModel
 class SettingsViewModel
@@ -185,21 +199,91 @@ class SettingsViewModel
                 }
                 .stateIn(viewModelScope, SharingStarted.Eagerly, initialValue = SettingsUiState())
 
-        fun toggleChannel(channelName: String) {
+        /**
+         * Toggles a channel's enabled state.
+         *
+         * For "Notification" channel:
+         * - On disable: cancels WorkManager job, shows Toast
+         * - On enable: reschedules WorkManager job
+         *
+         * For "Wallpaper" channel:
+         * - Updates settings (scheduler manager handles WorkManager changes)
+         */
+        fun toggleChannel(
+            channelName: String,
+            context: Context,
+        ) {
             viewModelScope.launch {
                 val activeGoals = repo.observeActive().first()
                 activeGoals.firstOrNull()?.let { goal ->
+                    val currentSettings = goal.settings
+                    val newEnabled =
+                        when (channelName) {
+                            "Wallpaper" -> !currentSettings.wallpaperEnabled
+                            "Notification" -> !currentSettings.notificationEnabled
+                            else -> false
+                        }
+
                     val updatedSettings =
                         when (channelName) {
                             "Wallpaper" ->
-                                goal.settings.copy(wallpaperEnabled = !goal.settings.wallpaperEnabled)
+                                currentSettings.copy(wallpaperEnabled = newEnabled)
 
                             "Notification" ->
-                                goal.settings.copy(notificationEnabled = !goal.settings.notificationEnabled)
+                                currentSettings.copy(notificationEnabled = newEnabled)
 
-                            else -> goal.settings
+                            else -> currentSettings
                         }
+
                     repo.updateSettings(goal.id, updatedSettings)
+
+                    // Handle WorkManager changes and show Toast
+                    handleChannelToggleEffects(
+                        context = context,
+                        channelName = channelName,
+                        newEnabled = newEnabled,
+                        goalId = goal.id,
+                        settings = updatedSettings,
+                    )
+                }
+            }
+        }
+
+        private fun handleChannelToggleEffects(
+            context: Context,
+            channelName: String,
+            newEnabled: Boolean,
+            goalId: Long,
+            settings: CampaignSettings,
+        ) {
+            // This runs in a CoroutineScope, need to dispatch to main for Toast
+            android.os.Handler(context.mainLooper).post {
+                when (channelName) {
+                    "Notification" -> {
+                        if (!newEnabled) {
+                            // Cancel notification WorkManager job
+                            NotificationScheduler.cancelAllNotificationsForGoal(context, goalId)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.toast_notifications_paused),
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        } else {
+                            // Re-enable if notificationTargetsPerDay > 0
+                            if (settings.notificationTargetsPerDay > 0) {
+                                NotificationScheduler.scheduleNotificationForGoal(context, goalId)
+                            }
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.toast_notifications_resumed),
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    }
+                    "Wallpaper" -> {
+                        // WallpaperSchedulerManager will handle the change
+                        // No Toast needed for wallpaper toggle
+                    }
                 }
             }
         }

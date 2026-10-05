@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Retarget — v1 manifest carries NO permissions.
+  Retarget — manifest carries only essential permissions.
   Local-first by design: no INTERNET permission, no analytics, no trackers.
   (See DEVELOPMENT.md "Pre-registered decisions" #1 and #4.)
-  Permission additions require maintainer approval + documented justification.
+
+  POST_NOTIFICATIONS (Android 13+): required to deliver goal-focused nudges.
+  Justification: Phase 2 notification channel needs this system permission.
+  User control: notification nudges disabled by default; toggle in Settings.
+  See AGENTS.md §1 (permission additions require documentation) and §2 (ethical guardrails).
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".RetargetApplication"
@@ -24,6 +29,42 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
+        <!-- Check-in service for recording user check-ins from notification actions -->
+        <service
+            android:name=".analytics.CheckInService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Notification action handlers (Milestone 2.6) -->
+        <receiver
+            android:name=".broadcast.FewerNotificationsReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.retarget.action.FEWER_NOTIFICATIONS" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".broadcast.CheckInReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.retarget.action.CHECK_IN" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".broadcast.SnoozeReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.retarget.action.SNOOZE" />
+            </intent-filter>
+        </receiver>
+
 
     </application>
 

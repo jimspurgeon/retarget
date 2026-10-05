@@ -63,6 +63,18 @@ interface ExposureDao {
     /** One-tap purge (AGENTS.md §2: data must be fully deletable). */
     @Query("DELETE FROM exposures")
     fun clear()
+
+    /** Count of exposures for a specific channel. */
+    @Query("SELECT COUNT(*) FROM exposures WHERE channel = :channel")
+    fun exposuresByChannel(channel: Channel): Int
+
+    /**
+     * Count of exposures for a specific channel within the day starting at
+     * [startOfDayMs] (window [startOfDayMs, startOfDayMs + 24h)). Bounded so
+     * past-day counts do not grow as future days accumulate rows.
+     */
+    @Query("SELECT COUNT(*) FROM exposures WHERE channel = :channel AND atMs >= :startOfDayMs AND atMs < :startOfDayMs + 86400000")
+    fun exposuresTodayByChannel(channel: Channel, startOfDayMs: Long): Int
 }
 
 /** [ExposureLedger] adapter over [ExposureDao]; see [ExposureDao] threading notes. */
@@ -88,4 +100,9 @@ class RoomExposureLedger(
 
     override fun recentExposures(limit: Int): List<RecentExposure> =
         dao.recent(limit).map { RecentExposure(it.creativeId, it.subTheme, it.channel, it.atMs) }
+
+    override fun exposuresByChannel(channel: Channel): Int = dao.exposuresByChannel(channel)
+
+    override fun exposuresTodayByChannel(channel: Channel, startOfDayMs: Long): Int =
+        dao.exposuresTodayByChannel(channel, startOfDayMs)
 }

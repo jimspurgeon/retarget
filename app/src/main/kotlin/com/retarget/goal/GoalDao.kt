@@ -20,8 +20,15 @@ interface GoalDao {
     @Query("SELECT * FROM goals WHERE active = 1 ORDER BY createdAt DESC")
     fun observeActive(): Flow<List<GoalEntity>>
 
+    /** Get all active goals as a list (blocking call for internal use). */
+    @Query("SELECT * FROM goals WHERE active = 1 ORDER BY createdAt DESC")
+    fun getAllActiveGoals(): List<GoalEntity>
+
     @Query("SELECT * FROM goals WHERE presetId = :presetId LIMIT 1")
     suspend fun byPresetId(presetId: String): GoalEntity?
+
+    @Query("SELECT * FROM goals WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): GoalEntity?
 
     @Query("UPDATE goals SET active = :active WHERE id = :id")
     suspend fun setActive(

@@ -37,6 +37,12 @@ class CreativeRotatorTest {
         override fun exposuresBySubTheme(subTheme: String): Int =
             exposures.count { it.subTheme == subTheme }
 
+        override fun exposuresByChannel(channel: Channel): Int =
+            exposures.count { it.channel == channel }
+
+        override fun exposuresTodayByChannel(channel: Channel, startOfDayMs: Long): Int =
+            exposures.count { it.channel == channel && it.atMs >= startOfDayMs && it.atMs < startOfDayMs + 86_400_000L }
+
         private fun exposuresOf(creativeId: String) = exposures.filter { it.creativeId == creativeId }
     }
 
@@ -250,5 +256,75 @@ class CreativeRotatorTest {
 
         // Same seed should produce identical sequence
         assertEquals(selections1, selections2)
+    }
+
+    // ---- Channel-based exposure counting (Milestone 2.5) ----
+
+    @Test
+    fun `exposuresByChannel returns correct count per channel`() {
+        val ledger = FakeLedger()
+        
+        // Record exposures across different channels
+        ledger.recordExposure("c1", "default", Channel.WALLPAPER, 1000L)
+        ledger.recordExposure("c2", "default", Channel.WALLPAPER, 2000L)
+        ledger.recordExposure("c3", "default", Channel.NOTIFICATION, 3000L)
+        ledger.recordExposure("c4", "default", Channel.WIDGET, 4000L)
+        ledger.recordExposure("c5", "default", Channel.NOTIFICATION, 5000L)
+        
+        assertEquals(2, ledger.exposuresByChannel(Channel.WALLPAPER))
+        assertEquals(2, ledger.exposuresByChannel(Channel.NOTIFICATION))
+        assertEquals(1, ledger.exposuresByChannel(Channel.WIDGET))
+        assertEquals(0, ledger.exposuresByChannel(Channel.OVERLAY))
+    }
+
+    @Test
+    fun `exposuresTodayByChannel filters by startOfDayMs`() {
+        val ledger = FakeLedger()
+        
+        // Simulate a day boundary at 5000L
+        val startOfDayMs = 5000L
+        
+        // Exposures before the day starts
+        ledger.recordExposure("c1", "default", Channel.NOTIFICATION, 1000L)
+        ledger.recordExposure("c2", "default", Channel.WALLPAPER, 2000L)
+        
+        // Exposures during this day
+        ledger.recordExposure("c3", "default", Channel.NOTIFICATION, 5000L)
+        ledger.recordExposure("c4", "default", Channel.NOTIFICATION, 6000L)
+        ledger.recordExposure("c5", "default", Channel.WALLPAPER, 7000L)
+        
+        // Today's notification count
+        assertEquals(2, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, startOfDayMs))
+        
+        // Today's wallpaper count
+        assertEquals(1, ledger.exposuresTodayByChannel(Channel.WALLPAPER, startOfDayMs))
+        
+        // Later day start shrinks the window to fewer exposures (only c4 @ 6000 falls in [5500, 88645000))
+        assertEquals(1, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, 5_500L))
+    }
+
+    @Test
+    fun `channel counts work correctly across day boundaries`() {
+        val ledger = FakeLedger()
+        
+        // Day 1
+        val day1Start = 0L
+        ledger.recordExposure("c1", "default", Channel.NOTIFICATION, 1000L)
+        ledger.recordExposure("c2", "default", Channel.NOTIFICATION, 2000L)
+        ledger.recordExposure("c3", "default", Channel.NOTIFICATION, 3000L)
+        
+        assertEquals(3, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, day1Start))
+        
+        // Day 2 (86400000 ms later)
+        val day2Start = 86400000L
+        ledger.recordExposure("c4", "default", Channel.NOTIFICATION, day2Start + 1000L)
+        ledger.recordExposure("c5", "default", Channel.NOTIFICATION, day2Start + 2000L)
+        
+        // Counts should be separate per day
+        assertEquals(3, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, day1Start))
+        assertEquals(2, ledger.exposuresTodayByChannel(Channel.NOTIFICATION, day2Start))
+        
+        // Total channel count includes all days
+        assertEquals(5, ledger.exposuresByChannel(Channel.NOTIFICATION))
     }
 }

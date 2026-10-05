@@ -7,6 +7,7 @@
 package com.retarget.scheduler
 
 import android.content.Context
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.work.Configuration
 import androidx.work.testing.SynchronousExecutor
@@ -28,6 +29,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.Shadows.shadowOf
 
 /**
  * Integration test for [WallpaperSchedulerManager] verifying that:
@@ -81,18 +83,13 @@ class WallpaperSchedulerManagerIntegrationTest {
         // Install a goal with wallpaper enabled
         installGoalWithWallpaper(true)
 
-        // Wait a short time for flow to emit and scheduler to react
-        kotlinx.coroutines.delay(100)
-
-        // Verify scheduler work is enqueued
-        val workManager = androidx.work.WorkManager.getInstance(context)
-        val infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        
-        assertTrue(
-            "Scheduler should be running when wallpaper-enabled goal is active",
-            infoList.any { it.state == androidx.work.WorkInfo.State.ENQUEUED || 
-                          it.state == androidx.work.WorkInfo.State.RUNNING }
-        )
+        // Verify scheduler work is enqueued (eventually — flow reactions are async,
+        // and CI runners are slower than local: fixed delays race)
+        val running = awaitCondition {
+            wallpaperWorkStates().any { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                       it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Scheduler should be running when wallpaper-enabled goal is active", running)
     }
 
     @Test
@@ -103,28 +100,22 @@ class WallpaperSchedulerManagerIntegrationTest {
         val goalId = installGoalWithWallpaper(true)
         kotlinx.coroutines.delay(100)
 
-        // Verify scheduler is running
-        var workManager = androidx.work.WorkManager.getInstance(context)
-        var infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        assertTrue(
-            "Scheduler should run initially",
-            infoList.any { it.state == androidx.work.WorkInfo.State.ENQUEUED || 
-                          it.state == androidx.work.WorkInfo.State.RUNNING }
-        )
+        // Verify scheduler is running (eventually — flow reactions are async)
+        val running = awaitCondition {
+            wallpaperWorkStates().any { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                        it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Scheduler should run initially", running)
 
         // Deactivate the goal
         repository.setActive(goalId, false)
-        kotlinx.coroutines.delay(100)
 
-        // Verify scheduler stopped
-        workManager = androidx.work.WorkManager.getInstance(context)
-        infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        
-        assertTrue(
-            "Scheduler should stop when no wallpaper-enabled goals exist",
-            infoList.all { it.state != androidx.work.WorkInfo.State.ENQUEUED && 
-                           it.state != androidx.work.WorkInfo.State.RUNNING }
-        )
+        // Verify scheduler stopped (eventually — flow reactions are async across observers)
+        val stopped = awaitCondition {
+            wallpaperWorkStates().none { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                         it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Scheduler should stop when no wallpaper-enabled goals exist", stopped)
     }
 
     @Test
@@ -133,17 +124,14 @@ class WallpaperSchedulerManagerIntegrationTest {
 
         // Install a goal WITHOUT wallpaper enabled
         installGoalWithWallpaper(false)
-        kotlinx.coroutines.delay(100)
 
-        // Verify scheduler is NOT running
-        val workManager = androidx.work.WorkManager.getInstance(context)
-        val infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        
-        assertTrue(
-            "Scheduler should NOT run when no wallpaper-enabled goals exist",
-            infoList.all { it.state != androidx.work.WorkInfo.State.ENQUEUED && 
-                           it.state != androidx.work.WorkInfo.State.RUNNING }
-        )
+        // Verify scheduler is NOT running (eventually — give any spurious start
+        // time to settle before asserting absence)
+        val stopped = awaitCondition {
+            wallpaperWorkStates().none { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                         it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Scheduler should NOT run when no wallpaper-enabled goals exist", stopped)
     }
 
     @Test
@@ -152,51 +140,39 @@ class WallpaperSchedulerManagerIntegrationTest {
 
         // Activate goal 1 WITHOUT wallpaper
         val goalId1 = installGoalWithWallpaper(false)
-        kotlinx.coroutines.delay(100)
 
-        var workManager = androidx.work.WorkManager.getInstance(context)
-        var infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        assertTrue(
-            "Should not run with only non-wallpaper goals",
-            infoList.all { it.state != androidx.work.WorkInfo.State.ENQUEUED && 
-                           it.state != androidx.work.WorkInfo.State.RUNNING }
-        )
+        var stopped = awaitCondition {
+            wallpaperWorkStates().none { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                         it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Should not run with only non-wallpaper goals", stopped)
 
         // Activate goal 2 WITH wallpaper
         val goalId2 = installGoalWithWallpaper(true)
-        kotlinx.coroutines.delay(100)
 
-        workManager = androidx.work.WorkManager.getInstance(context)
-        infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        assertTrue(
-            "Should start running when wallpaper goal added",
-            infoList.any { it.state == androidx.work.WorkInfo.State.ENQUEUED || 
-                          it.state == androidx.work.WorkInfo.State.RUNNING }
-        )
+        var running = awaitCondition {
+            wallpaperWorkStates().any { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                       it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Should start running when wallpaper goal added", running)
 
         // Deactivate goal 1 (non-wallpaper), goal 2 still active
         repository.setActive(goalId1, false)
-        kotlinx.coroutines.delay(100)
 
-        workManager = androidx.work.WorkManager.getInstance(context)
-        infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        assertTrue(
-            "Should continue running when non-wallpaper goal deactivated",
-            infoList.any { it.state == androidx.work.WorkInfo.State.ENQUEUED || 
-                          it.state == androidx.work.WorkInfo.State.RUNNING }
-        )
+        running = awaitCondition {
+            wallpaperWorkStates().any { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                       it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Should continue running when non-wallpaper goal deactivated", running)
 
         // Deactivate goal 2 (wallpaper) - now no wallpaper goals
         repository.setActive(goalId2, false)
-        kotlinx.coroutines.delay(100)
 
-        workManager = androidx.work.WorkManager.getInstance(context)
-        infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        assertTrue(
-            "Should stop when last wallpaper goal deactivated",
-            infoList.all { it.state != androidx.work.WorkInfo.State.ENQUEUED && 
-                           it.state != androidx.work.WorkInfo.State.RUNNING }
-        )
+        stopped = awaitCondition {
+            wallpaperWorkStates().none { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                         it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Should stop when last wallpaper goal deactivated", stopped)
     }
 
     @Test
@@ -225,15 +201,12 @@ class WallpaperSchedulerManagerIntegrationTest {
         // Immediately check - flow might not have emitted yet
         // refresh() should force the update
         schedulerManager.refresh()
-        kotlinx.coroutines.delay(50)
 
-        workManager = androidx.work.WorkManager.getInstance(context)
-        infoList = workManager.getWorkInfosByTag("retarget_wallpaper_rotation").get()
-        assertTrue(
-            "Refresh should trigger scheduler start after DB change",
-            infoList.any { it.state == androidx.work.WorkInfo.State.ENQUEUED || 
-                          it.state == androidx.work.WorkInfo.State.RUNNING }
-        )
+        val started = awaitCondition {
+            wallpaperWorkStates().any { it == androidx.work.WorkInfo.State.ENQUEUED ||
+                                       it == androidx.work.WorkInfo.State.RUNNING }
+        }
+        assertTrue("Refresh should trigger scheduler start after DB change", started)
     }
 
     /** Helper to install a goal with specified wallpaper setting */
@@ -249,4 +222,25 @@ class WallpaperSchedulerManagerIntegrationTest {
         )
         return db.goalDao().insert(entity)
     }
+
+    /**
+     * Waits until [condition] holds or [timeoutMs] elapses.
+     * The scheduler reacts to Room flow emissions asynchronously (multiple observers
+     * may be live), so assertions about WorkManager state are eventually-consistent.
+     */
+    private fun awaitCondition(timeoutMs: Long = 2000, condition: () -> Boolean): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (condition()) return true
+            shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(50)
+        }
+        return condition()
+    }
+
+    private fun wallpaperWorkStates(): List<androidx.work.WorkInfo.State> =
+        androidx.work.WorkManager.getInstance(context)
+            .getWorkInfosByTag("retarget_wallpaper_rotation").get()
+            .map { it.state }
 }
+

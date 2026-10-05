@@ -14,7 +14,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,8 +24,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.retarget.app.R
 import com.retarget.app.ui.DashboardScreen
+import com.retarget.app.ui.DashboardViewModel
+import com.retarget.app.ui.DailyPacingSummary
 import com.retarget.app.ui.SettingsScreen
+import com.retarget.app.ui.TransparencyScreen
 import com.retarget.app.ui.onboarding.OnboardingScreen
 import com.retarget.goal.GoalRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -54,6 +60,7 @@ class RootViewModel
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestNotificationPermissionIfNeeded()
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
@@ -61,6 +68,30 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * POST_NOTIFICATIONS runtime request (Android 13+). Without it, notification
+     * delivery is silently denied and the worker retries forever (gatekeeper B4).
+     * Called once at launch; user can change anytime in system settings.
+     */
+    private fun requestNotificationPermissionIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.POST_NOTIFICATIONS,
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            androidx.core.app.ActivityCompat.requestPermissions(
+                this,
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                REQUEST_POST_NOTIFICATIONS,
+            )
+        }
+    }
+
+    private companion object {
+        const val REQUEST_POST_NOTIFICATIONS = 1001
     }
 }
 
@@ -79,15 +110,38 @@ private fun Root(rootViewModel: RootViewModel = hiltViewModel()) {
         }
         composable("dashboard") {
             DashboardScreen(
+                viewModel = hiltViewModel(),
                 onNavigateToSettings = {
                     navController.navigate("settings")
+                },
+                onNavigateToTransparency = {
+                    navController.navigate("transparency")
                 },
             )
         }
         composable("settings") {
             SettingsScreen()
         }
+        composable("transparency") {
+            TransparencyRoute()
+        }
     }
+}
+
+@Composable
+private fun TransparencyRoute(viewModel: DashboardViewModel = hiltViewModel()) {
+    val goals by viewModel.activeGoals.collectAsState(initial = emptyList())
+    val notifPacing by viewModel.notificationPacingSummary.collectAsState(
+        initial = DailyPacingSummary(0, 0),
+    )
+    val goal = goals.firstOrNull()
+    TransparencyScreen(
+        goalName = goal?.displayName ?: "",
+        techniqueRationale = stringResource(R.string.transparency_default_rationale),
+        notificationCountToday = notifPacing.countToday,
+        notificationBudget = notifPacing.targetPerDay,
+        onOpenSettings = { /* handled by nav; transparency route includes its own settings link */ },
+    )
 }
 
 @Composable
