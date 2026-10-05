@@ -110,7 +110,7 @@ class NotificationSchedulerManager(
 
     companion object {
         private const val TAG = "NotificationSchedulerManager"
-        private const val WORK_TAG = "retarget_notification_delivery"
+        const val WORK_TAG = "retarget_notification_delivery"
         private const val CHECK_INTERVAL_HOURS = 2L
 
         /**

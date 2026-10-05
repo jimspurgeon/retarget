@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -48,6 +49,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 fun DashboardScreen(
     viewModel: DashboardViewModel? = null,
     onNavigateToSettings: () -> Unit = {},
+    onNavigateToTransparency: () -> Unit = {},
 ) {
     val wallpaperPacing by (viewModel?.wallpaperPacingSummary ?: MutableStateFlow(DailyPacingSummary(0, 0)))
         .collectAsState(initial = DailyPacingSummary(0, 0))
@@ -140,6 +142,16 @@ fun DashboardScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
+        }
+
+        FloatingActionButton(
+            onClick = onNavigateToTransparency,
+            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.HelpOutline,
+                contentDescription = stringResource(R.string.transparency_title),
+            )
         }
 
         FloatingActionButton(

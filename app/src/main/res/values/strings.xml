@@ -37,6 +37,7 @@
     <string name="preset_vegetables_blurb">Redesigned by 400 million years of R&amp;D.</string>
 
     <!-- Transparency screen -->
+    <string name="transparency_default_rationale">Scheduled to appear during a natural pause in your day, using spaced repetition to keep this goal visible without interrupting focused time.</string>
     <string name="transparency_title">Why am I seeing this?</string>
     <string name="transparency_goal_label">Goal</string>
     <string name="transparency_technique_label">Why now?</string>

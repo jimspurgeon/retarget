@@ -59,11 +59,22 @@ object NudgeScheduler {
 
             // Process notification channel
             if (settings.notificationEnabled) {
+                // Daily-cap accounting: ledger currently tracks exposures channel-wide
+                // (no goalId column). For a single-goal campaign this is exact; with
+                // multiple active goals it is conservative (under- rather than over-delivers).
+                // TODO(goal-scoped-ledger): add goalId to ExposureEntity for per-goal caps.
+                val startOfDayMs = Instant.ofEpochMilli(nowMs)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                    .atStartOfDay(ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
+                val sentToday = ledger.exposuresTodayByChannel(Channel.NOTIFICATION, startOfDayMs)
                 if (NotificationPolicy.canDeliver(
                     goalId = goalId,
                     nowMs = nowMs,
                     settings = settings,
-                    sentToday = 0, // caller should pass actual count from ledger
+                    sentToday = sentToday,
                     dismissedSince = emptyList(),
                 )) {
                     // Check crowding backoff before adding slot

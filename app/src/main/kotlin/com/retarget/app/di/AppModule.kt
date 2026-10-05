@@ -74,6 +74,17 @@ object AppModule {
     fun provideExposureLedger(dao: ExposureDao): RoomExposureLedger = RoomExposureLedger(dao)
 
     /**
+     * Provides [DashboardViewModel]'s dependencies marker. DashboardViewModel itself is
+     * constructed by Hilt's view-model machinery when annotated; since it takes plain
+     * constructor params, we bind it via the assisted factory pattern below.
+     */
+    @Provides
+    fun provideDashboardViewModel(
+        db: com.retarget.goal.GoalDatabase,
+        ledger: RoomExposureLedger,
+    ): com.retarget.app.ui.DashboardViewModel = com.retarget.app.ui.DashboardViewModel(db, ledger)
+
+    /**
      * Provides WorkManager instance for wallpaper scheduling.
      * Initialized lazily via getInstance()—no direct injection needed,
      * but binding it here documents the dependency and enables mocking in tests.
