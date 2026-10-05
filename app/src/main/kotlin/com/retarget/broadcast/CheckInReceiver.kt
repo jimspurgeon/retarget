@@ -41,6 +41,7 @@ class CheckInReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        const val ACTION_CHECK_IN = "com.retarget.action.CHECK_IN"
         const val EXTRA_GOAL_ID = "goal_id"
     }
 }

@@ -75,6 +75,7 @@ class FewerNotificationsReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        const val ACTION_FEWER_NOTIFICATIONS = "com.retarget.action.FEWER_NOTIFICATIONS"
         const val EXTRA_GOAL_ID = "goal_id"
     }
 }

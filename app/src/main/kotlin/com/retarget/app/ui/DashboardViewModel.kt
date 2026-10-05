@@ -8,6 +8,8 @@ package com.retarget.app.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import com.retarget.analytics.CheckInDao
 import com.retarget.creative.Channel
 import com.retarget.creative.RoomExposureLedger
@@ -26,7 +28,8 @@ import java.time.ZoneId
  * how their nudge budget is being spent (e.g., "Notifications: 2/3 today").
  * Also shows check-in rates (check-ins / exposures) per goal.
  */
-class DashboardViewModel(
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
     private val db: GoalDatabase,
     private val ledger: RoomExposureLedger,
     private val zoneId: ZoneId = ZoneId.systemDefault(),

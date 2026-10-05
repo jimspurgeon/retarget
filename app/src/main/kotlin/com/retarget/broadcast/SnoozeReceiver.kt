@@ -38,6 +38,7 @@ class SnoozeReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        const val ACTION_SNOOZE = "com.retarget.action.SNOOZE"
         const val EXTRA_GOAL_ID = "goal_id"
         const val SNOOZE_DURATION_MINUTES = 120L
     }

@@ -99,13 +99,16 @@ class NotificationDeliveryWorker(
                     return@withContext Result.success()
                 }
 
-            // Prepare notification action intents
+            // Prepare notification action intents — explicit component + action matched to
+            // manifest receivers (com.retarget.action.*) and their "goal_id" extra keys.
+            // Explicit intents sidestep the O+ implicit-broadcast restriction.
             val actions = NotificationActions(
                 checkInIntent = PendingIntent.getBroadcast(
                     applicationContext,
                     selected.id.hashCode(),
-                    android.content.Intent("RETARGET_CHECKIN").apply {
-                        putExtra("GOAL_ID", goal.id)
+                    android.content.Intent(applicationContext, com.retarget.broadcast.CheckInReceiver::class.java).apply {
+                        action = com.retarget.broadcast.CheckInReceiver.ACTION_CHECK_IN
+                        putExtra(com.retarget.broadcast.CheckInReceiver.EXTRA_GOAL_ID, goal.id)
                         putExtra("CREATIVE_ID", selected.id)
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -113,8 +116,9 @@ class NotificationDeliveryWorker(
                 snooze2hIntent = PendingIntent.getBroadcast(
                     applicationContext,
                     selected.id.hashCode() + 1,
-                    android.content.Intent("RETARGET_SNOOZE").apply {
-                        putExtra("GOAL_ID", goal.id)
+                    android.content.Intent(applicationContext, com.retarget.broadcast.SnoozeReceiver::class.java).apply {
+                        action = com.retarget.broadcast.SnoozeReceiver.ACTION_SNOOZE
+                        putExtra(com.retarget.broadcast.SnoozeReceiver.EXTRA_GOAL_ID, goal.id)
                         putExtra("CREATIVE_ID", selected.id)
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
@@ -122,8 +126,9 @@ class NotificationDeliveryWorker(
                 fewerLikeThisIntent = PendingIntent.getBroadcast(
                     applicationContext,
                     selected.id.hashCode() + 2,
-                    android.content.Intent("RETARGET_FEWER").apply {
-                        putExtra("GOAL_ID", goal.id)
+                    android.content.Intent(applicationContext, com.retarget.broadcast.FewerNotificationsReceiver::class.java).apply {
+                        action = com.retarget.broadcast.FewerNotificationsReceiver.ACTION_FEWER_NOTIFICATIONS
+                        putExtra(com.retarget.broadcast.FewerNotificationsReceiver.EXTRA_GOAL_ID, goal.id)
                         putExtra("CREATIVE_ID", selected.id)
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
