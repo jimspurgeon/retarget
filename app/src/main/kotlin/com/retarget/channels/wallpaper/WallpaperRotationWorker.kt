@@ -128,8 +128,26 @@ class BundledPackSource(
             .flatMap { packId -> loadPack(packId) }
     }
 
-    /** Resolves the on-disk cache file behind [creative]; null if unavailable. */
-    fun imageFileFor(creative: Creative): File? = File(creative.imagePath).takeIf { it.isFile }
+    /**
+     * Resolves the on-disk cache file behind [creative], copying it from APK
+     * assets on first use (asset paths are not filesystem paths — [File] on
+     * an asset-relative path never resolves on device).
+     */
+    fun imageFileFor(creative: Creative): File? {
+        val cacheFile = File(context.cacheDir, "creative-cache/${creative.imagePath}")
+        if (cacheFile.isFile) return cacheFile
+        return try {
+            val assetStream = context.assets.open(creative.imagePath)
+            cacheFile.parentFile?.mkdirs()
+            assetStream.use { input ->
+                cacheFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            cacheFile
+        } catch (e: Exception) {
+            Log.w("BundledPackSource", "Failed to cache asset ${creative.imagePath}", e)
+            null
+        }
+    }
 
     private fun loadPack(packId: String): List<Creative> {
         val manifestJson =
@@ -148,7 +166,7 @@ class BundledPackSource(
                 subTheme = entry.subTheme ?: packId,
                 copyPool = emptyList(),
                 // Bundled asset images are addressable only through AssetManager;
-                // the worker copies them to the cache dir before decoding.
+                // imageFileFor copies them to the cache dir before decoding.
                 imagePath = "$PACKS_DIR/$packId/${entry.file}",
                 attribution = entry.photographer,
                 licenseUrl = entry.licenseUrl,
