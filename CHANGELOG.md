@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is SemVer-ish
 (`vMAJOR.MINOR.PATCH` — see DEVELOPMENT.md).
 
+## [v0.3.1] - 2026-10-06
+
+### Hotfix — Android 17 startup crash
+
+- **Fixed:** Startup crash on Android 17 (Pixel 10 / GrapheneOS) caused by blocking Room queries
+  running on the main thread in `DashboardViewModel` (`IllegalStateException: Cannot access database
+  on the main thread`). Flows now dispatch to `Dispatchers.IO` via `.flowOn`.
+- Verified on physical device (Pixel 10, GrapheneOS, Android 17): cold start survives with no crash.
+- Known issue (deferred to next update): wallpaper rotation may not visibly trigger after enabling a
+  wallpaper-enabled goal on some devices; under investigation.
+
+---
+
 ## [v0.3.0] - 2026-10-05
 
 ### Phase 2 "The Campaign" — notifications + scheduler
