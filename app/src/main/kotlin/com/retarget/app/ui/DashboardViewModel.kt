@@ -14,8 +14,10 @@ import com.retarget.analytics.CheckInDao
 import com.retarget.creative.Channel
 import com.retarget.creative.RoomExposureLedger
 import com.retarget.goal.GoalDatabase
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -71,6 +73,7 @@ class DashboardViewModel @Inject constructor(
                     targetPerDay = aggregateTarget,
                 )
             }
+            .flowOn(Dispatchers.IO)
 
     /** Notification pacing summary across all active goals. */
     val notificationPacingSummary: Flow<DailyPacingSummary> =
@@ -88,6 +91,7 @@ class DashboardViewModel @Inject constructor(
                     targetPerDay = aggregateTarget,
                 )
             }
+            .flowOn(Dispatchers.IO)
 
     /** Check-in rates per goal (check-ins today / notification exposures today). */
     val checkInRates: Flow<List<GoalCheckInRate>> =
@@ -110,6 +114,7 @@ class DashboardViewModel @Inject constructor(
                     )
                 }
             }
+            .flowOn(Dispatchers.IO)
 }
 
 /** Per-goal pacing state exposed to the UI. */
