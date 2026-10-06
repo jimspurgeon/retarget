@@ -6,14 +6,25 @@ All notable changes to this project are documented here. Format loosely follows
 
 ## [v0.3.1] - 2026-10-06
 
-### Hotfix — Android 17 startup crash
+### Hotfix — Android 17 startup crash + hydration content gap
 
-- **Fixed:** Startup crash on Android 17 (Pixel 10 / GrapheneOS) caused by blocking Room queries
+**Crash fix:**
+- Fixed startup crash on Android 17 (Pixel 10 / GrapheneOS) caused by blocking Room queries
   running on the main thread in `DashboardViewModel` (`IllegalStateException: Cannot access database
   on the main thread`). Flows now dispatch to `Dispatchers.IO` via `.flowOn`.
-- Verified on physical device (Pixel 10, GrapheneOS, Android 17): cold start survives with no crash.
-- Known issue (deferred to next update): wallpaper rotation may not visibly trigger after enabling a
-  wallpaper-enabled goal on some devices; under investigation.
+- Verified on physical device: cold start survives with no crash.
+
+**Content gap closure:**
+- **Added hydration creative pack** (60 images across 6 sub-themes: sparkling water pours, mountain
+  streams, ocean waves, morning dew macros, water ripples, citrus-infused water). Previously,
+  the wallpaper channel silently did nothing for hydration goals because no bundled images existed
+  for the HYDRATION theme.
+- Wallpaper rotation now works end-to-end for hydration. Expect updates within quiet hours (7 AM–10 PM)
+  and ~8h rotation cadence.
+
+**Known issues (deferred):**
+- Wallpaper may not change immediately if currently in quiet hours (22:00–07:00) or if no active goal
+  with wallpaper enabled exists. Complete onboarding and verify goal settings.
 
 ---
 
