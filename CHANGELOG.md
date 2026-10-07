@@ -4,6 +4,15 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is SemVer-ish
 (`vMAJOR.MINOR.PATCH` — see DEVELOPMENT.md).
 
+## [Unreleased]
+
+### Added
+
+- Settings: "Export my data" action — saves goals, campaign settings, exposure
+  history and check-ins as a JSON file via the system file picker. Runs entirely
+  on-device; nothing is sent anywhere (M3.1 data export, part 1 of 2 — the JSON
+  serializer lands in the export-core branch and is wired at integration).
+
 ## [v0.3.3] - 2026-10-06
 
 ### Content curation — hydration & vegetables packs
