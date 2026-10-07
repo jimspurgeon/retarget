@@ -19,8 +19,7 @@ export payload. Import/restore is deferred to v0.4.1.
 
 - Settings: "Export my data" action — saves goals, campaign settings, exposure
   history and check-ins as a JSON file via the system file picker. Runs entirely
-  on-device; nothing is sent anywhere (M3.1 data export, part 1 of 2 — the JSON
-  serializer lands in the export-core branch and is wired at integration).
+  on-device; nothing is sent anywhere.
 
 ## [v0.3.3] - 2026-10-06
 
