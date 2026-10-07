@@ -119,6 +119,7 @@ class BundledPackSource(
         mapOf(
             "fresh_air" to com.retarget.creative.GoalTheme.NATURE_TIME,
             "fruit" to com.retarget.creative.GoalTheme.PLANT_BASED_WHOLE_FOODS,
+            "vegetables" to com.retarget.creative.GoalTheme.PLANT_BASED_WHOLE_FOODS,
         )
 
     fun creativesFor(goals: List<com.retarget.goal.GoalEntity>): List<Creative> {
