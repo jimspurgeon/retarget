@@ -54,4 +54,16 @@
     <string name="toast_notifications_paused">Notification nudges paused. Tap to re-enable.</string>
     <string name="toast_notifications_reduced">Reduced to %d/day. Change in Settings anytime.</string>
     <string name="toast_notifications_resumed">Notification nudges re-enabled.</string>
+
+    <!-- Home-screen widget (M3.2) -->
+    <string name="widget_label">Retarget</string>
+    <string name="widget_description">Goal glanceable + one-tap check-in</string>
+    <string name="widget_empty_title">No campaign yet</string>
+    <string name="widget_empty_hint">Add a goal to see it here</string>
+    <string name="widget_error_message">Something went wrong loading your campaign. Tap to reopen the app.</string>
+    <string name="widget_check_in_button">Check in</string>
+    <string name="widget_check_in_done_button">Checked in ✓</string>
+    <string name="widget_checked_in_today">Checked in today</string>
+    <string name="widget_pacing_text">%1$d of %2$d nudges</string>
+    <string name="widget_check_in_toast">Checked in! Nice work.</string>
 </resources>

@@ -73,6 +73,25 @@
             </intent-filter>
         </receiver>
 
+        <!-- Glance home-screen widget (M3.2). updatePeriodMillis is 0 in the
+             widget info XML: updates are driven by our WorkManager tick on the
+             same ~2h cadence as the notification scheduler — no extra wakeups.
+             Exported=true is required for the system AppWidget host to bind;
+             this is the standard GlanceAppWidgetReceiver pattern (no custom
+             permissions, no new app permissions). -->
+        <receiver
+            android:name="com.retarget.widget.RetargetWidgetReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/retarget_widget_info" />
+        </receiver>
+
 
     </application>
 

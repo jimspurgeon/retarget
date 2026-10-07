@@ -9,6 +9,7 @@ package com.retarget.app
 import android.app.Application
 import com.retarget.scheduler.NotificationSchedulerManager
 import com.retarget.scheduler.WallpaperSchedulerManager
+import com.retarget.widget.RetargetWidgetReceiver
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -26,6 +27,9 @@ class RetargetApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Schedule M3.2 widget updates on the same cadence as notifications (no extra wakeups).
+        RetargetWidgetReceiver.scheduleUpdates(this)
+
         // Wire wallpaper scheduler to goal activation lifecycle.
         // Starts monitoring goals and auto-manages scheduler based on user-enabled campaigns.
         wallpaperSchedulerManager.startMonitoring()
