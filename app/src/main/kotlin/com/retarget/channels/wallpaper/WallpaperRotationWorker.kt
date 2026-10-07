@@ -14,6 +14,7 @@ import com.retarget.creative.Channel
 import com.retarget.creative.Creative
 import com.retarget.creative.CreativeImageCache
 import com.retarget.creative.CreativeRotator
+import com.retarget.creative.NudgeCopyCatalog
 import com.retarget.creative.RoomExposureLedger
 import com.retarget.goal.GoalDatabase
 import com.retarget.goal.PresetCatalog
@@ -155,7 +156,9 @@ class BundledPackSource(
                 packId = packId,
                 goalTheme = packThemes[packId] ?: com.retarget.creative.GoalTheme.GENERAL_WELLNESS,
                 subTheme = entry.subTheme ?: packId,
-                copyPool = emptyList(),
+                copyPool = NudgeCopyCatalog.forTheme(
+                    packThemes[packId] ?: com.retarget.creative.GoalTheme.GENERAL_WELLNESS,
+                ),
                 // Bundled asset images are addressable only through AssetManager;
                 // imageFileFor copies them to the cache dir before decoding.
                 imagePath = "$PACKS_DIR/$packId/${entry.file}",
