@@ -139,18 +139,27 @@ open questions that need maintainer decisions before implementation dispatch.
 
 ---
 
-## 8. Open Questions for Maintainer
+## 8. Decisions (maintainer-approved 2026-10-05)
 
-1. **Import support in M3.1?** Export-only first, or ship import (restore) in
-   the same milestone? Recommendation: export-only for v0.4.0, import in v0.4.1.
-2. **Widget sizes:** single medium widget MVP, or family (small+medium)?
-   Recommendation: single medium.
-3. **Bandit aggressiveness:** pure ε-greedy (simplest to reason about) vs.
-   Thompson sampling. Recommendation: ε-greedy with ε=0.1, floor of 20
-   observations per bucket.
-4. **Ticker channel default:** off by default (consistent with opt-in ethos)?
+1. **Import support in M3.1:** Export-only for v0.4.0; import (restore) deferred to v0.4.1.
+   - *Rationale:* Export fulfills the local-first trust promise; import adds schema-versioning complexity prematurely.
+   - *Action:* Milestone 3.1 scope = export only.
 
-## 9. References
+2. **Widget sizes:** Single medium widget MVP (no small widget family).
+   - *Rationale:* Glance API is still maturing; one size minimizes surface area, proves concept, avoids layout fragmentation.
+   - *Action:* Milestone 3.2 scope = single Glance medium widget.
+
+3. **Bandit aggressiveness:** ε-greedy (ε=0.1) with floor of 20 observations per bucket.
+   - *Rationale:* Simplicity, debuggability, and provable restraint trump marginal convergence speed; explanation in Transparency screen is one sentence.
+   - *Action:* Milestone 3.4 scope = ε-greedy with 20-observation floor; no Thompson sampling.
+
+4. **Ticker channel default:** Off by default (opt-in via onboarding/settings).
+   - *Rationale:* Lock-screen presence is the highest-friction channel; default-off preserves consent ethos, reduces first-run churn.
+   - *Action:* Milestone 3.3 default = disabled; discovery prompt in onboarding only.
+
+---
+
+## 9. Open Questions for Maintainer
 
 - DEVELOPMENT.md Phase 3 scope; pre-registered decisions #1–#7.
 - docs/research/interruption-timing.md — timing/adaptivity evidence.
