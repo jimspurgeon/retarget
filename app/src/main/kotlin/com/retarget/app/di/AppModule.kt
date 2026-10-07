@@ -77,6 +77,9 @@ object AppModule {
     fun provideExposureDao(db: com.retarget.goal.GoalDatabase): ExposureDao = db.exposureDao()
 
     @Provides
+    fun provideCheckInDao(db: com.retarget.goal.GoalDatabase): com.retarget.analytics.CheckInDao = db.checkInDao()
+
+    @Provides
     fun provideZoneId(): java.time.ZoneId = java.time.ZoneId.systemDefault()
 
 

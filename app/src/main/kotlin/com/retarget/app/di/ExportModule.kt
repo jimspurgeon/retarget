@@ -6,7 +6,11 @@
 
 package com.retarget.app.di
 
+import com.retarget.analytics.CheckInDao
 import com.retarget.analytics.export.ExportUseCase
+import com.retarget.analytics.export.RoomExportUseCase
+import com.retarget.creative.ExposureDao
+import com.retarget.goal.GoalDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -14,40 +18,22 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 /**
- * Export wiring for the M3.1 "Export my data" Settings action (Worker B,
- * branch jimspurgeon/m31-export-ui).
+ * Export wiring for the M3.1 "Export my data" Settings action.
  *
- * INTEGRATION NOTE (coordinator): the export-core branch provides the real
- * serializer, which satisfies [ExportUseCase] directly. Until that merge,
- * [provideExportUseCase] returns a placeholder so this branch compiles with a
- * complete Hilt graph on its own. On integration, delete this provider and
- * the placeholder object and bind the concrete serializer instead, e.g.:
- *
- * ```
- * @Binds
- * @Singleton
- * abstract fun bindExportUseCase(impl: ExportSerializer): ExportUseCase
- * ```
- *
- * If triggered pre-integration the placeholder fails safely: the ViewModel
- * catches the throw and shows the generic "export failed" toast.
+ * Integrates the export-core serializer with the export-ui action:
+ * [RoomExportUseCase] fetches all goals (active AND archived), exposure
+ * events, and check-ins from Room, maps them via
+ * [com.retarget.analytics.export.ExportPayload.fromRows], and renders the
+ * pretty-printed JSON the user picks a destination for.
  */
 @Module
 @InstallIn(SingletonComponent::class)
 object ExportModule {
-    /**
-     * Placeholder binding keeping the DI graph complete without the concrete
-     * serializer from the export-core branch. Replace at integration (see
-     * class-level note).
-     */
     @Provides
     @Singleton
-    fun provideExportUseCase(): ExportUseCase = PlaceholderExportUseCase
-}
-
-private object PlaceholderExportUseCase : ExportUseCase {
-    override suspend fun buildExport(): String =
-        throw IllegalStateException(
-            "Export serializer not wired yet: integrate the m31-export-core branch",
-        )
+    fun provideExportUseCase(
+        goalDao: GoalDao,
+        exposureDao: ExposureDao,
+        checkInDao: CheckInDao,
+    ): ExportUseCase = RoomExportUseCase(goalDao, exposureDao, checkInDao)
 }
