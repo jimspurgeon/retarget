@@ -15,6 +15,7 @@ import com.retarget.creative.Channel
 import com.retarget.creative.Creative
 import com.retarget.creative.CreativeImageCache
 import com.retarget.creative.CreativeRotator
+import com.retarget.creative.NudgeCopyCatalog
 import com.retarget.creative.RoomExposureLedger
 import com.retarget.goal.GoalDatabase
 import com.retarget.goal.PresetCatalog
@@ -135,12 +136,15 @@ class NotificationDeliveryWorker(
                 ),
             )
 
-            // Build and deliver notification
+            // Build and deliver notification. copyLine falls back to the goal's
+            // display name if the creative carries no copy (defensive: an empty
+            // copyPool previously crashed this worker with NoSuchElementException).
+            val fallbackCopy = "A gentle nudge toward your goal."
             val spec = NotificationSpec(
                 goalId = goal.id,
                 creative = selected,
                 title = PresetCatalog.byId(goal.presetId)?.displayName ?: goal.displayName,
-                copyLine = selected.copyPool.random(),
+                copyLine = selected.copyPool.randomOrNull() ?: fallbackCopy,
                 actions = actions,
             )
 
@@ -223,7 +227,9 @@ class BundledPackSource(
                 packId = packId,
                 goalTheme = packThemes[packId] ?: com.retarget.creative.GoalTheme.GENERAL_WELLNESS,
                 subTheme = entry.subTheme ?: packId,
-                copyPool = emptyList(),
+                copyPool = NudgeCopyCatalog.forTheme(
+                    packThemes[packId] ?: com.retarget.creative.GoalTheme.GENERAL_WELLNESS,
+                ),
                 imagePath = "$PACKS_DIR/$packId/${entry.file}",
                 attribution = entry.photographer,
                 licenseUrl = entry.licenseUrl,

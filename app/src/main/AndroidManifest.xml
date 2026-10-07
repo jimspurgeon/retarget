@@ -11,6 +11,10 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- SET_WALLPAPER: normal (install-time) permission. Without it, WallpaperManager
+         .setBitmap() throws SecurityException and rotation retries forever (v0.3.1
+         regression: wallpaper channel never applied a single change). -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
     <application
         android:name=".RetargetApplication"
@@ -31,11 +35,15 @@
         </activity>
 
 
-        <!-- Check-in service for recording user check-ins from notification actions -->
+        <!-- Check-in service for recording user check-ins from notification actions.
+             NOTE: IntentService is deprecated (API 30); migrate to a coroutine-based
+             approach in Phase 3 cleanup (gatekeeper F3). The BIND_JOB_SERVICE
+             permission declaration is intentionally REMOVED: it is a system-held
+             permission that guards JobService bindings; declaring it here made the
+             service unstartable by the app itself (SecurityException). -->
         <service
             android:name=".analytics.CheckInService"
-            android:exported="false"
-            android:permission="android.permission.BIND_JOB_SERVICE" />
+            android:exported="false" />
 
         <!-- Notification action handlers (Milestone 2.6) -->
         <receiver
