@@ -517,12 +517,15 @@ def main():
             ("dragon fruit exotic macro", 12),
         ],
         "vegetables": [
+            # Produce-explicit search terms only (user decision, Oct 2026):
+            # vague terms like "garden harvest basket" and "leafy greens macro"
+            # pulled in leaves, flowers, fruit baskets, and scenery.
             ("farmers market vegetable stall", 10),
             ("heirloom tomato close-up", 10),
-            ("garden harvest basket", 10),
-            ("leafy greens texture macro", 8),
-            ("market peppers rainbow", 10),
-            ("artisan salad bowl", 12),
+            ("basket of fresh vegetables", 10),
+            ("colorful bell peppers", 10),
+            ("fresh salad bowl vegetables", 12),
+            ("carrots and broccoli fresh", 6),
         ],
     }
 

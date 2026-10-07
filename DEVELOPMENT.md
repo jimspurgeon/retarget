@@ -150,6 +150,11 @@ checklist as literal checkboxes. Never rewrite `main` history.
 Versioning: SemVer-ish for app releases (`vMAJOR.MINOR.PATCH`), with MINOR bumps for
 feature phases and PATCH for fixes. `versionCode` monotonic in gradle.
 
+**Released versions are immutable.** Never modify, re-cut, or overwrite an
+already-published release (tag, GitHub Release, or attached APK). If a release
+turned out wrong, ship a new PATCH version instead. Fixes to released content go
+into the next release, never into history rewrites.
+
 ## Definition of Done (every PR)
 
 - [ ] Tests for new logic pass; existing suites green (CI = GitHub Actions on

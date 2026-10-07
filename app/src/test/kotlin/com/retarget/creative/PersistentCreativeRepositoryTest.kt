@@ -109,7 +109,7 @@ class PersistentCreativeRepositoryTest {
             assertTrue(natureCreatives.all { it.imagePath.endsWith(".jpg") })
 
             val plantBased = repo.getCandidatesForActiveGoals(listOf(GoalTheme.PLANT_BASED_WHOLE_FOODS))
-            assertEquals(113, plantBased.size) // fruit (60) + vegetables (53)
+            assertEquals(127, plantBased.size) // fruit (60) + vegetables (67)
             assertTrue(plantBased.all { it.goalTheme == GoalTheme.PLANT_BASED_WHOLE_FOODS })
         }
 

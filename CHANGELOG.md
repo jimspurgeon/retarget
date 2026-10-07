@@ -4,33 +4,34 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is SemVer-ish
 (`vMAJOR.MINOR.PATCH` — see DEVELOPMENT.md).
 
-## [Unreleased]
+## [v0.3.3] - 2026-10-06
 
 ### Content curation — hydration & vegetables packs
 
-Stricter curation standard (maintainer decision, Oct 2026): imagery must show
-the subject itself — drinkable water / distinct produce — dominant in frame,
-vibrant and appetizing.
+Second-pass curation under a stricter standard (maintainer decision, Oct 2026):
+imagery must show the subject itself — drinkable water / distinct, appetizing
+produce — dominant in frame. Every image in both packs was audited with CLIP
+zero-shot classification plus manual visual review.
 
-- **Hydration pack (60 images, fully re-curated):** removed all nature-scenery
-  sub-themes (mountain streams, waterfalls, ocean waves, dew macros, ripples)
-  and non-water drinks (juice, iced coffee, smoothies, cola/amber drinks).
-  Replaced with drink-focused sub-themes: glasses of water, sparkling pours,
-  lemon/cucumber infused pitchers, mint/berry infused bottles, condensation
-  bottles. Every image now shows an appetizing water drink. `fetch_creatives.py`
-  hydration quotas switched to drink-only search terms.
-- **Vegetables pack (53 images):** removed prepared dishes, person-dominant
-  shots, flowering plants, leaf-only textures, and garden scenery without
-  distinct produce; refilled with salad bowls, market stalls, harvest baskets,
-  heirloom tomatoes, peppers.
-- **Audit method:** every image in both packs passed CLIP zero-shot review
-  (positive = pack subject; negatives = meat, flowers, people, scenery,
-  non-water drinks) plus manual visual confirmation of flagged candidates.
+- **Hydration pack (52 images, fully re-curated):** removed all nature-scenery
+  sub-themes (streams, waterfalls, waves, dew, ripples), non-water drinks
+  (juice, iced coffee, smoothies, cola/amber drinks), and photos with visible
+  brand names on bottles. Replaced with drink-focused sub-themes: glasses of
+  water, sparkling pours, lemon/cucumber infused pitchers, mint/berry infused
+  bottles, condensation bottles. `fetch_creatives.py` quotas now use drink-only
+  search terms.
+- **Vegetables pack (67 images):** removed prepared dishes, meat, bread,
+  person-dominant shots, flowering plants, leaf-only textures, fruit-only
+  baskets (strawberries, apples, pinecones), empty bowls, and unripe/unappetizing
+  produce. Refilled with produce-explicit search terms (bell peppers, carrots &
+  broccoli, salad bowls, heirloom tomatoes, market stalls).
 - `fetch_creatives.py` fixes: existing manifest entries now count toward
-  sub-theme quotas (refills only fetch the deficit instead of re-fetching the
-  full quota), and in-run duplicate guard prevents the same photo entering
-  via two search terms.
-- Test updated: plant-based candidate pool is now 113 (fruit 60 + vegetables 53).
+  sub-theme quotas (refills fetch only the deficit), and an in-run duplicate
+  guard prevents the same photo entering via two search terms.
+- **Release policy (repo-wide rule):** released versions are immutable — never
+  overwrite or re-cut a published release; ship a new PATCH version instead.
+  Documented in DEVELOPMENT.md.
+- Test updated: plant-based candidate pool is now 127 (fruit 60 + vegetables 67).
 
 ## [v0.3.2] - 2026-10-06
 
