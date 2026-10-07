@@ -4,6 +4,34 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is SemVer-ish
 (`vMAJOR.MINOR.PATCH` — see DEVELOPMENT.md).
 
+## [v0.3.2] - 2026-10-06
+
+### Hotfix — notification & wallpaper channels were silently dead
+
+**Delivery fixes (PR #19):**
+- **Notifications never fired**: `NotificationDeliveryWorker` crashed with
+  `NoSuchElementException` (`copyPool.random()` on an empty list — bundled-pack
+  creatives carried no copy lines) and WorkManager marked the work terminally
+  FAILED after one attempt. Fixed by the new `NudgeCopyCatalog` (theme-matched copy
+  lines for every bundled pack) plus a defensive `randomOrNull()` fallback.
+- **Wallpaper never changed**: `WallpaperManager.setBitmap()` threw
+  `SecurityException` because `SET_WALLPAPER` was never declared in the manifest;
+  the rotation worker retried forever without applying anything. Permission now
+  declared (normal install-time permission).
+- Removed the incorrect `BIND_JOB_SERVICE` declaration from `CheckInService`
+  (system-held permission made the service unstartable by the app itself).
+- Verified on physical device (Pixel 10 / GrapheneOS / Android 17): cold start
+  delivers both a notification and a wallpaper rotation within seconds; both
+  exposures recorded in the ledger; zero crashes.
+
+**Content:**
+- **Added vegetables creative pack** (54 vibrant images: farmers-market stalls,
+  heirloom tomatoes, garden-harvest baskets, leafy-greens macros, rainbow peppers,
+  artisan salads). The "More Vegetables" preset now serves its own imagery instead
+  of reusing the fruit pack.
+
+---
+
 ## [v0.3.1] - 2026-10-06
 
 ### Hotfix — Android 17 startup crash + hydration content gap

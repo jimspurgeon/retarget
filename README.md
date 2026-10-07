@@ -39,7 +39,7 @@ tested. Next up: Phase 3 — “The Agency” (widgets, adaptivity, data export)
 |---|---|---|
 | 0 | Foundation (repo, CI, docs) | ✅ Complete — v0.1.0 released |
 | 1 | MVP "The Billboard" (wallpaper engine) | ✅ Complete — Goal wizard + wallpaper engine shipped |
-| 2 | "The Campaign" (notifications + scheduler) | ✅ Complete — v0.3.1 hotfix (Android 17 crash fix) |
+| 2 | "The Campaign" (notifications + scheduler) | ✅ Complete — v0.3.2 hotfix (delivery revival: notifications + wallpaper) |
 | 3 | "The Agency" (adaptivity, widgets, bundles) | 🚧 Next — Planning phase |
 | 4 | Polish & community | Planned |
 
