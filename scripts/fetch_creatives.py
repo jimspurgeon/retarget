@@ -320,11 +320,16 @@ def fetch_pack(theme_id, keywords_with_quotas, key, ledger, dry_run=False):
     print(f"[{theme_id}] have {len(have)}, target {target}, shipped-ever {len(shipped)}")
 
     # Sub-theme quotas drive diversity; each (term, quota) fills its own slot.
-    # (Query loop lives in the per-photo section below.)
-
+    # Quotas count TOTAL pack composition: existing manifest entries already
+    # tagged with a sub-theme are credited against that term's quota, so only
+    # the deficit is fetched. Entries without a sub-theme (handpicked) don't
+    # count toward any term and never block fetching.
     added = 0
     for query, quota in keywords_with_quotas:
-        sub_added = 0
+        sub_added = sum(
+            1 for img in manifest["images"]
+            if img.get("subTheme") == query
+        )
         page = 1
         attempts = 0
         while sub_added < quota and attempts < 12:
@@ -388,6 +393,7 @@ def fetch_pack(theme_id, keywords_with_quotas, key, ledger, dry_run=False):
                     "sha256": file_hash,
                 })
                 ledger[pid] = theme_id
+                have.add(pid)  # guard against the same photo surfacing under two search terms
                 sub_added += 1
                 added += 1
                 print(f"  fetched {pid} [{query}] ({rw}x{rh}) by {username}")
@@ -478,12 +484,15 @@ def main():
     # (forgetting-curve rationale in docs/research/imagery-domains.md).
     THEME_QUOTAS = {
         "hydration": [
+            # Water drinks only (user decision, Oct 2026): the pack must show
+            # appetizing, drinkable water — glasses, bottles, pitchers, ideally
+            # garnished. Scenery (streams, waves, dew, ripples) and bare fruit
+            # are out; they read as abstract nature, not as a hydration cue.
+            ("glass of water", 12),
             ("sparkling water pour glass", 12),
-            ("mountain stream waterfall", 10),
-            ("ocean wave splash", 10),
-            ("morning dew drop macro", 9),
-            ("blue texture water ripple", 9),
-            ("citrus infused water", 10),
+            ("lemon cucumber infused water pitcher", 12),
+            ("mint berry infused water bottle", 12),
+            ("water bottle condensation", 12),
         ],
         "fresh-air": [
             ("misty mountain peaks layers", 7),
