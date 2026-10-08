@@ -39,7 +39,15 @@ class CheckInActionCallback : ActionCallback {
             val entryPoint = WidgetEntryPoint.get(context)
             val stateSource = entryPoint.widgetStateSource()
 
-            val goalId = stateSource.checkIn()
+            Log.i(TAG, "onAction: dispatching check-in via WidgetStateSource")
+            val goalId =
+                try {
+                    stateSource.checkIn()
+                } catch (e: Exception) {
+                    Log.e(TAG, "onAction: check-in threw", e)
+                    null
+                }
+            Log.i(TAG, "onAction: check-in result goalId=$goalId")
             if (goalId != null) {
                 Log.i(TAG, "Check-in recorded for goalId=$goalId")
                 // Refresh immediately so the checked-in state shows on the widget.
