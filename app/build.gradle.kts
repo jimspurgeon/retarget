@@ -80,6 +80,9 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime)
 
+    // Glance home-screen widget (M3.2)
+    implementation(libs.glance.appwidget)
+
     testImplementation(libs.junit)
     testImplementation(libs.androidx.room.testing)
     testImplementation(libs.androidx.test.core)

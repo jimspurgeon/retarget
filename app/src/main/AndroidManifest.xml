@@ -73,6 +73,36 @@
             </intent-filter>
         </receiver>
 
+        <!-- Widget configuration screen (M3.2, gatekeeper M2 fix): goal picker
+             launched by the system when the widget is added (see
+             retarget_widget_info.xml android:configure). Exported because the
+             launcher starts it directly; no intent-filter beyond the widget
+             host's contract, no new permissions. -->
+        <activity
+            android:name="com.retarget.widget.WidgetConfigurationActivity"
+            android:exported="true"
+            android:label="@string/widget_config_title"
+            android:theme="@style/Theme.Retarget" />
+
+        <!-- Glance home-screen widget (M3.2). updatePeriodMillis is 0 in the
+             widget info XML: updates are driven by our WorkManager tick on the
+             same ~2h cadence as the notification scheduler — no extra wakeups.
+             Exported=true is required for the system AppWidget host to bind;
+             this is the standard GlanceAppWidgetReceiver pattern (no custom
+             permissions, no new app permissions). -->
+        <receiver
+            android:name="com.retarget.widget.RetargetWidgetReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/retarget_widget_info" />
+        </receiver>
+
 
     </application>
 
