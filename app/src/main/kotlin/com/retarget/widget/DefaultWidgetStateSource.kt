@@ -93,10 +93,18 @@ class DefaultWidgetStateSource
         override suspend fun checkIn(): Long? =
             withContext(Dispatchers.IO) {
                 val goal = primaryGoal() ?: return@withContext null
-                checkInDao.insert(
-                    com.retarget.analytics.CheckInEntity(goalId = goal.id, atMs = System.currentTimeMillis(), notes = null),
-                )
-                goal.id
+                // Parity with CheckInService: a storage failure (disk full, DB
+                // corruption) degrades to "no check-in" + a log line instead of
+                // propagating out of the Glance ActionCallback (gatekeeper M4a).
+                try {
+                    checkInDao.insert(
+                        com.retarget.analytics.CheckInEntity(goalId = goal.id, atMs = System.currentTimeMillis(), notes = null),
+                    )
+                    goal.id
+                } catch (e: Exception) {
+                    android.util.Log.e(TAG, "Widget check-in insert failed for goalId=${goal.id}", e)
+                    null
+                }
             }
 
         /**
@@ -109,6 +117,17 @@ class DefaultWidgetStateSource
         }
 
         private suspend fun composeFor(goal: GoalEntity): WidgetSnapshot {
+            // Parse failures (goal.settings) are expected user-data degradation
+            // and map to Error(SettingsUnparseable); anything else (e.g. a Room/
+            // storage failure while counting) is a distinct, loudly-logged
+            // ErrorReason.StorageFailure (gatekeeper M2m: never misattribute
+            // storage problems to unparseable settings).
+            try {
+                goal.settings
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "Campaign settings unparseable for goalId=${goal.id}", e)
+                return WidgetSnapshot.Error(reason = ErrorReason.SettingsUnparseable)
+            }
             try {
                 // Start of today in the injected zone — mirrors the schedulers'
                 // ZoneId-injection pattern (NudgeScheduler uses the same calculation).
@@ -130,8 +149,8 @@ class DefaultWidgetStateSource
                 val latestCreativePath = latestCreativePathFor(goal)
                 return WidgetStateComposer.compose(goal, exposuresToday, checkInsToday, latestCreativePath)
             } catch (e: Exception) {
-                android.util.Log.w("DefaultWidgetStateSource", "Failed to compose widget state", e)
-                return WidgetSnapshot.Error(reason = ErrorReason.SettingsUnparseable)
+                android.util.Log.e(TAG, "Storage failure composing widget state for goalId=${goal.id}", e)
+                return WidgetSnapshot.Error(reason = ErrorReason.StorageFailure)
             }
         }
 
@@ -154,5 +173,9 @@ class DefaultWidgetStateSource
             } catch (e: Exception) {
                 return null
             }
+        }
+
+        private companion object {
+            private const val TAG = "DefaultWidgetStateSource"
         }
     }

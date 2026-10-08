@@ -82,4 +82,12 @@ sealed interface WidgetSnapshot {
 sealed interface ErrorReason {
     /** settingsJson failed to parse or violated CampaignSettings invariants. */
     data object SettingsUnparseable : ErrorReason
+
+    /**
+     * Reading persisted state failed (e.g. a Room/storage error while counting
+     * today's exposures). Distinct from [SettingsUnparseable] so logs and any
+     * future diagnostics never misattribute storage problems to user data
+     * (gatekeeper M2m). Rendered identically: neutral message, tap reopens app.
+     */
+    data object StorageFailure : ErrorReason
 }

@@ -70,7 +70,7 @@ class RetargetWidget : GlanceAppWidget() {
             object : WidgetUiTextMapper.Strings {
                 override val emptyTitle = context.getString(R.string.widget_empty_title)
                 override val emptyHint = context.getString(R.string.widget_empty_hint)
-                override val widget_error_message = context.getString(R.string.widget_error_message)
+                override val errorMessage = context.getString(R.string.widget_error_message)
                 override val checkInButton = context.getString(R.string.widget_check_in_button)
                 override val checkInDoneButton = context.getString(R.string.widget_check_in_done_button)
                 override val pacingFormat = context.getString(R.string.widget_pacing_text)

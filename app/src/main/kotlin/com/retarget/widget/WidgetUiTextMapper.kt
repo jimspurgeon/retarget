@@ -34,7 +34,7 @@ object WidgetUiTextMapper {
     interface Strings {
         val emptyTitle: String
         val emptyHint: String
-        val widget_error_message: String
+        val errorMessage: String
         val checkInButton: String
         val checkInDoneButton: String
         val pacingFormat: String // e.g. "%1$d of %2$d nudges"
@@ -93,7 +93,7 @@ object WidgetUiTextMapper {
 
             is WidgetSnapshot.Error ->
                 WidgetUiText(
-                    headline = strings.widget_error_message,
+                    headline = strings.errorMessage,
                     body = null,
                     checkInLabel = null,
                 )
