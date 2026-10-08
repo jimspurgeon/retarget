@@ -54,8 +54,11 @@ data class ChannelEnablement(
 /**
  * Default [WidgetStateSource]: reads the primary goal's counts and composes a snapshot.
  *
- * Widget add flow sets a per-goal widget preference (first added goal wins for
- * MVP — PHASE3-AGENCY.md §3): the most recently created active goal is displayed.
+ * Displayed-goal selection (gatekeeper M2 fix, PHASE3-AGENCY.md §3 "per-goal
+ * widget preference"):
+ * 1. the goal the user picked for the widget ([WidgetGoalPreferenceStore]);
+ * 2. when unset — or the preferred goal is inactive/missing — the FIRST-ADDED
+ *    active goal (`minByOrNull { createdAt }`), per the plan's letter.
  */
 @Singleton
 class DefaultWidgetStateSource
@@ -67,6 +70,7 @@ class DefaultWidgetStateSource
         private val checkInDao: CheckInDao,
         private val creativeRepository: PersistentCreativeRepository,
         private val zoneId: ZoneId,
+        private val widgetGoalPreference: WidgetGoalPreferenceStore,
     ) : WidgetStateSource {
         override suspend fun current(): WidgetSnapshot =
             withContext(Dispatchers.IO) {
@@ -96,11 +100,13 @@ class DefaultWidgetStateSource
             }
 
         /**
-         * The displayed goal: most recently created ACTIVE goal (M3.2 MVP:
-         * "first added goal wins" approximated by latest-created; widget add-flow
-         * per-goal preference may refine this later without changing the seam).
+         * The displayed goal (gatekeeper M2 fix): the user's widget preference
+         * when it resolves to an active goal, else the FIRST-ADDED active goal.
          */
-        private suspend fun primaryGoal(): GoalEntity? = goalDao.getAllActiveGoals().maxByOrNull { it.createdAt }
+        private suspend fun primaryGoal(): GoalEntity? {
+            val activeGoals = goalDao.getAllActiveGoals()
+            return WidgetGoalResolver.resolve(activeGoals, widgetGoalPreference.get())
+        }
 
         private suspend fun composeFor(goal: GoalEntity): WidgetSnapshot {
             try {
