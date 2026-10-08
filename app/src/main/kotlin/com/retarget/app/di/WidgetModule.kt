@@ -6,12 +6,10 @@
 
 package com.retarget.app.di
 
-import com.retarget.analytics.CheckInDao
 import com.retarget.widget.DefaultWidgetStateSource
 import com.retarget.widget.WidgetStateSource
 import dagger.Binds
 import dagger.Module
-import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -21,9 +19,8 @@ import javax.inject.Singleton
  *
  * Binds the [WidgetStateSource] seam so Glance-constructed classes
  * ([com.retarget.widget.RetargetWidget], [com.retarget.widget.CheckInActionCallback])
- * can resolve it via [com.retarget.widget.WidgetEntryPoint]. Also provides
- * [CheckInDao], previously only reachable via GoalDatabase.get() (same pattern
- * as AppModule.provideExposureDao).
+ * can resolve it via [com.retarget.widget.WidgetEntryPoint]. CheckInDao is
+ * provided by AppModule since M3.1 export landed on main.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -31,9 +28,4 @@ abstract class WidgetModule {
     @Binds
     @Singleton
     abstract fun bindWidgetStateSource(impl: DefaultWidgetStateSource): WidgetStateSource
-
-    companion object {
-        @Provides
-        fun provideCheckInDao(db: com.retarget.goal.GoalDatabase): CheckInDao = db.checkInDao()
-    }
 }

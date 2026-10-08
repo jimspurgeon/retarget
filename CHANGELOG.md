@@ -4,6 +4,23 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versioning is SemVer-ish
 (`vMAJOR.MINOR.PATCH` — see DEVELOPMENT.md).
 
+## [Unreleased]
+
+### Data export & backup — M3.1 underway
+
+First milestone of Phase 3 ("The Agency", see docs/plans/PHASE3-AGENCY.md):
+data portability work has started. Scope per maintainer decision of 2026-10-05
+(§8/1): **export-only for v0.4.0** — a Settings action exporting goals,
+campaign settings, exposure-ledger events, and check-ins as JSON via the
+system file picker, with the "delete everything" purge verified against the
+export payload. Import/restore is deferred to v0.4.1.
+
+### Added
+
+- Settings: "Export my data" action — saves goals, campaign settings, exposure
+  history and check-ins as a JSON file via the system file picker. Runs entirely
+  on-device; nothing is sent anywhere.
+
 ## [v0.3.3] - 2026-10-06
 
 ### Content curation — hydration & vegetables packs

@@ -72,4 +72,9 @@
     <string name="widget_config_no_goals">Add a goal first — the widget shows it once you have one.</string>
     <string name="widget_config_pick_first">Pick a goal to continue</string>
     <string name="widget_pin_unsupported">Your launcher doesn’t support pinning widgets — add “Retarget” from the launcher’s widget picker instead.</string>
+    <!-- Settings: export my data -->
+    <string name="settings_export_action">Export my data</string>
+    <string name="settings_export_subtitle">Save a copy of your goals, settings, exposure history and check-ins as a JSON file on your device. Nothing is sent anywhere.</string>
+    <string name="settings_export_success">Export saved</string>
+    <string name="settings_export_failed">Couldn\'t save the export. Please try again.</string>
 </resources>

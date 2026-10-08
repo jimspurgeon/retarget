@@ -8,6 +8,8 @@ package com.retarget.app.ui
 
 import android.content.Context
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -39,7 +41,6 @@ import com.retarget.app.R
 import com.retarget.goal.CampaignSettings
 import com.retarget.goal.GoalRepository
 import com.retarget.scheduler.NotificationScheduler
-import com.retarget.scheduler.WallpaperScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
@@ -59,6 +60,30 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val exportViewModel: ExportViewModel = hiltViewModel()
+    val isExporting by exportViewModel.isExporting.collectAsState()
+
+    // System file picker (ACTION_CREATE_DOCUMENT). A null URI means the user
+    // cancelled: no export, no toast, no crash (requirement: cancellation is a no-op).
+    val createExportFileLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json"),
+        ) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            exportViewModel.exportTo(
+                openSink = { context.contentResolver.openOutputStream(uri) },
+                onSuccess = {
+                    Toast
+                        .makeText(context, context.getString(R.string.settings_export_success), Toast.LENGTH_SHORT)
+                        .show()
+                },
+                onError = {
+                    Toast
+                        .makeText(context, context.getString(R.string.settings_export_failed), Toast.LENGTH_LONG)
+                        .show()
+                },
+            )
+        }
 
     Column(
         modifier =
@@ -84,6 +109,13 @@ fun SettingsScreen(
         ) {
             item {
                 QuietHoursCard(uiState.quietHoursStart, uiState.quietHoursEnd)
+            }
+
+            item {
+                ExportDataCard(
+                    enabled = !isExporting,
+                    onClick = { createExportFileLauncher.launch(buildSuggestedExportFileName()) },
+                )
             }
 
             items(uiState.channelSettings, key = { it.channelName }) { channel ->
@@ -167,6 +199,41 @@ data class SettingsUiState(
     val quietHoursEnd: Int = 7,
     val channelSettings: List<ChannelSetting> = emptyList(),
 )
+
+/**
+ * "Export my data" settings row. Mirrors the quiet-hours card styling.
+ * Disabled while an export is in flight to prevent double-taps.
+ */
+@Composable
+private fun ExportDataCard(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.settings_export_action),
+                style = MaterialTheme.typography.titleMedium,
+                // Visually de-emphasize while a write is in flight
+                color =
+                    if (enabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    },
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.settings_export_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
 
 data class ChannelSetting(
     val channelName: String,
