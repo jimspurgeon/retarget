@@ -82,7 +82,6 @@ dependencies {
 
     // Glance home-screen widget (M3.2)
     implementation(libs.glance.appwidget)
-    implementation(libs.glance.material3)
 
     testImplementation(libs.junit)
     testImplementation(libs.androidx.room.testing)

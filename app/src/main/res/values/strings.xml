@@ -25,6 +25,7 @@
     <!-- Dashboard pacing -->
     <string name="dashboard_pacing_wallpaper">Wallpaper: %1$d/%2$d today</string>
     <string name="dashboard_pacing_notification">Notifications: %1$d today</string>
+    <string name="dashboard_add_widget">Add home-screen widget</string>
 
     <!-- Preset campaigns -->
     <string name="preset_hydration_name">Hydration</string>
@@ -63,7 +64,12 @@
     <string name="widget_error_message">Something went wrong loading your campaign. Tap to reopen the app.</string>
     <string name="widget_check_in_button">Check in</string>
     <string name="widget_check_in_done_button">Checked in ✓</string>
-    <string name="widget_checked_in_today">Checked in today</string>
     <string name="widget_pacing_text">%1$d of %2$d nudges</string>
-    <string name="widget_check_in_toast">Checked in! Nice work.</string>
+
+    <!-- Widget configuration screen (M3.2, gatekeeper M2 fix) -->
+    <string name="widget_config_title">Show which goal on your widget?</string>
+    <string name="widget_config_save">Save</string>
+    <string name="widget_config_no_goals">Add a goal first — the widget shows it once you have one.</string>
+    <string name="widget_config_pick_first">Pick a goal to continue</string>
+    <string name="widget_pin_unsupported">Your launcher doesn’t support pinning widgets — add “Retarget” from the launcher’s widget picker instead.</string>
 </resources>

@@ -25,7 +25,7 @@ class WidgetUiTextMapperTest {
         object : WidgetUiTextMapper.Strings {
             override val emptyTitle = "No campaign yet"
             override val emptyHint = "Add a goal to see it here"
-            override val widget_error_message = "Couldn't load your campaign"
+            override val errorMessage = "Couldn't load your campaign"
             override val checkInButton = "Check in"
             override val checkInDoneButton = "Checked in ✓"
             override val pacingFormat = "%1\$d of %2\$d nudges"
@@ -136,7 +136,7 @@ class WidgetUiTextMapperTest {
         assertEquals("No campaign yet", ui.headline)
     }
 
-    // ---- Composer (Worker A seam, exercised through Worker B's local copy) ----
+    // ---- Composer seam (shared state layer, pinned here for the renderer) ----
 
     private fun goal(settingsJson: String) =
         GoalEntity(

@@ -32,6 +32,7 @@ import com.retarget.app.ui.SettingsScreen
 import com.retarget.app.ui.TransparencyScreen
 import com.retarget.app.ui.onboarding.OnboardingScreen
 import com.retarget.goal.GoalRepository
+import com.retarget.widget.WidgetPinner
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -54,7 +55,8 @@ class RootViewModel
 
 /**
  * Single-activity Compose shell. First launch routes to onboarding; once any
- * goal is active the dashboard is home.
+ * goal is active the dashboard is home. Also owns the widget-pin entry point
+ * (M3.2): requests the system pin flow for the user's chosen goal.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -64,7 +66,16 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    Root()
+                    Root(
+                        onPinWidget = { WidgetPinner.pinWidget(this) },
+                        onPinUnsupported = {
+                            android.widget.Toast.makeText(
+                                this@MainActivity,
+                                R.string.widget_pin_unsupported,
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        },
+                    )
                 }
             }
         }
@@ -96,7 +107,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun Root(rootViewModel: RootViewModel = hiltViewModel()) {
+private fun Root(
+    rootViewModel: RootViewModel = hiltViewModel(),
+    onPinWidget: () -> Boolean = { false },
+    onPinUnsupported: () -> Unit = {},
+) {
     val hasGoals = rootViewModel.hasGoals.collectAsState(initial = false)
     val navController = rememberNavController()
 
@@ -117,6 +132,8 @@ private fun Root(rootViewModel: RootViewModel = hiltViewModel()) {
                 onNavigateToTransparency = {
                     navController.navigate("transparency")
                 },
+                onPinWidget = onPinWidget,
+                onPinUnsupported = onPinUnsupported,
             )
         }
         composable("settings") {

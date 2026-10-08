@@ -7,8 +7,6 @@
 package com.retarget.widget
 
 import android.content.Context
-import android.graphics.BitmapFactory
-import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -36,7 +34,8 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.retarget.app.MainActivity
 import com.retarget.app.R
-import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Home-screen widget (M3.2): renders [WidgetSnapshot] as a glanceable card.
@@ -57,11 +56,21 @@ class RetargetWidget : GlanceAppWidget() {
         val snapshot = stateSource.current()
         val channels = stateSource.channelEnablement()
 
+        // Gatekeeper M1 fix: decode the creative BEFORE composition, off the UI
+        // thread, bounds-first and subsampled, so the main thread never sees a
+        // full-resolution bitmap and a decode failure (incl. OutOfMemoryError)
+        // degrades to the fallback color instead of crashing the process.
+        val backgroundImage =
+            withContext(Dispatchers.IO) {
+                val active = snapshot as? WidgetSnapshot.Active
+                WidgetCreativeDecoder.decodeWidgetImageProvider(active?.creativeImagePath)
+            }
+
         val strings =
             object : WidgetUiTextMapper.Strings {
                 override val emptyTitle = context.getString(R.string.widget_empty_title)
                 override val emptyHint = context.getString(R.string.widget_empty_hint)
-                override val widget_error_message = context.getString(R.string.widget_error_message)
+                override val errorMessage = context.getString(R.string.widget_error_message)
                 override val checkInButton = context.getString(R.string.widget_check_in_button)
                 override val checkInDoneButton = context.getString(R.string.widget_check_in_done_button)
                 override val pacingFormat = context.getString(R.string.widget_pacing_text)
@@ -72,7 +81,7 @@ class RetargetWidget : GlanceAppWidget() {
             when (snapshot) {
                 is WidgetSnapshot.Empty -> EmptyContent(uiText)
                 is WidgetSnapshot.Error -> ErrorContent(uiText)
-                is WidgetSnapshot.Active -> ActiveContent(snapshot, uiText)
+                is WidgetSnapshot.Active -> ActiveContent(snapshot, uiText, backgroundImage)
             }
         }
     }
@@ -97,28 +106,21 @@ class RetargetWidget : GlanceAppWidget() {
         }
     }
 
-    /** Active state: creative background (fallback themed color), goal, pacing, check-in. */
+    /**
+     * Active state: creative background (fallback themed color), goal, pacing, check-in.
+     *
+     * [backgroundImage] is pre-decoded in [provideGlance] on Dispatchers.IO
+     * (see [WidgetCreativeDecoder]); null → [FALLBACK_COLOR].
+     */
     @Composable
     private fun ActiveContent(
         active: WidgetSnapshot.Active,
         uiText: WidgetUiText,
+        backgroundImage: ImageProvider?,
     ) {
         val backgroundMod =
-            if (active.creativeImagePath != null && File(active.creativeImagePath).isFile) {
-                try {
-                    val bitmap = BitmapFactory.decodeFile(active.creativeImagePath)
-                    if (bitmap != null) {
-                        GlanceModifier.background(ImageProvider(bitmap))
-                    } else {
-                        GlanceModifier.background(FALLBACK_COLOR)
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to decode creative image ${active.creativeImagePath}", e)
-                    GlanceModifier.background(FALLBACK_COLOR)
-                }
-            } else {
-                GlanceModifier.background(FALLBACK_COLOR)
-            }
+            backgroundImage?.let { image -> GlanceModifier.background(image) }
+                ?: GlanceModifier.background(FALLBACK_COLOR)
 
         WidgetCard(modifier = backgroundMod) {
             uiText.headline?.let { headline ->

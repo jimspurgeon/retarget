@@ -24,6 +24,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.retarget.app.R
+import com.retarget.widget.WidgetPinner
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -44,12 +46,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
  *
  * @param viewModel Dashboard view model providing pacing state.
  * @param onNavigateToSettings Callback triggered when the settings FAB is clicked.
+ * @param onPinWidget Requests the system pin flow for the home-screen widget
+ *   (M3.2); the goal picker (WidgetConfigurationActivity) follows automatically
+ *   because the widget declares a configure activity. Returns whether the
+ *   launcher accepted the request.
+ * @param onPinUnsupported Invoked when the launcher refuses pin requests, so the
+ *   host can point the user at the launcher's widget picker.
  */
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel? = null,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToTransparency: () -> Unit = {},
+    onPinWidget: () -> Boolean = { false },
+    onPinUnsupported: () -> Unit = {},
 ) {
     val wallpaperPacing by (viewModel?.wallpaperPacingSummary ?: MutableStateFlow(DailyPacingSummary(0, 0)))
         .collectAsState(initial = DailyPacingSummary(0, 0))
@@ -97,7 +107,6 @@ fun DashboardScreen(
                         style = MaterialTheme.typography.titleMedium,
                     )
                     Spacer(Modifier.height(8.dp))
-
                     // Wallpaper pacing
                     PacingRow(
                         label = stringResource(R.string.settings_channel_wallpaper),
@@ -132,6 +141,15 @@ fun DashboardScreen(
                             )
                             Spacer(Modifier.height(4.dp))
                         }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // Widget pin affordance (M3.2, gatekeeper M2 fix): the system
+                    // pin flow launches WidgetConfigurationActivity (declared as
+                    // android:configure), where the user picks which goal shows.
+                    OutlinedButton(onClick = { if (!onPinWidget()) onPinUnsupported() }) {
+                        Text(stringResource(R.string.dashboard_add_widget))
                     }
                 }
             } else {
