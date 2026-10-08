@@ -56,6 +56,10 @@ interface ExposureDao {
     @Query("SELECT COUNT(*) FROM exposures")
     fun totalExposures(): Int
 
+    /** Every exposure event, oldest first — deterministic order for export diffs. */
+    @Query("SELECT * FROM exposures ORDER BY atMs ASC, id ASC")
+    suspend fun getAllExposuresForExport(): List<ExposureEntity>
+
     /** Number of exposures for a specific sub-theme. */
     @Query("SELECT COUNT(*) FROM exposures WHERE subTheme = :subTheme")
     fun exposuresBySubTheme(subTheme: String): Int

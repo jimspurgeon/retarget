@@ -27,6 +27,10 @@ interface GoalDao {
     @Query("SELECT * FROM goals WHERE presetId = :presetId LIMIT 1")
     suspend fun byPresetId(presetId: String): GoalEntity?
 
+    /** Every goal, including inactive ones, oldest first — the export is a full backup. */
+    @Query("SELECT * FROM goals ORDER BY createdAt ASC, id ASC")
+    suspend fun getAllGoalsForExport(): List<GoalEntity>
+
     @Query("SELECT * FROM goals WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): GoalEntity?
 

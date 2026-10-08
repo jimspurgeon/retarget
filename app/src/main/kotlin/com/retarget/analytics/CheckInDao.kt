@@ -60,6 +60,10 @@ interface CheckInDao {
     @Query("SELECT COUNT(*) FROM check_ins WHERE goalId = :goalId")
     fun totalCountByGoal(goalId: Long): Int
 
+    /** Every check-in, oldest first — deterministic order for export diffs. */
+    @Query("SELECT * FROM check_ins ORDER BY atMs ASC, id ASC")
+    suspend fun getAllCheckInsForExport(): List<CheckInEntity>
+
     /**
      * Count check-ins for all active goals within today (reactive; recomputes when
      * the table changes so dashboards stay live).

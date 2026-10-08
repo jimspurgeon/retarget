@@ -54,4 +54,10 @@
     <string name="toast_notifications_paused">Notification nudges paused. Tap to re-enable.</string>
     <string name="toast_notifications_reduced">Reduced to %d/day. Change in Settings anytime.</string>
     <string name="toast_notifications_resumed">Notification nudges re-enabled.</string>
+
+    <!-- Settings: export my data -->
+    <string name="settings_export_action">Export my data</string>
+    <string name="settings_export_subtitle">Save a copy of your goals, settings, exposure history and check-ins as a JSON file on your device. Nothing is sent anywhere.</string>
+    <string name="settings_export_success">Export saved</string>
+    <string name="settings_export_failed">Couldn\'t save the export. Please try again.</string>
 </resources>
