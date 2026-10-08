@@ -51,17 +51,13 @@ class FewerNotificationsReceiver : BroadcastReceiver() {
                 val updatedSettings = settings.copy(notificationTargetsPerDay = newTargetsPerDay)
                 dao.updateSettings(goal.id, GoalConverters().settingsToJson(updatedSettings))
 
-                // Cancel any current WorkManager job and reschedule with reduced frequency
+                // Hotfix (scheduling consolidation): do NOT reschedule per-goal
+                // periodic work — the global delivery worker honors the lowered
+                // cap via the goal's persisted settings on its next pass. Only
+                // clean up any legacy per-goal work from earlier versions.
+                // The snooze state (if any) is deliberately left untouched:
+                // suppression signals are never weakened by other actions.
                 NotificationScheduler.cancelNotificationForGoal(context, goalId)
-                if (updatedSettings.notificationEnabled && newTargetsPerDay > 0) {
-                    // Reschedule with longer interval based on reduced target count
-                    val intervalAdjustment = (3 - newTargetsPerDay) * 60L // Longer intervals
-                    NotificationScheduler.scheduleNotificationForGoal(
-                        context,
-                        goalId,
-                        initialDelayMinutes = intervalAdjustment,
-                    )
-                }
 
                 // Show feedback toast (must run on main thread)
                 val message = context.getString(R.string.toast_notifications_reduced, newTargetsPerDay)

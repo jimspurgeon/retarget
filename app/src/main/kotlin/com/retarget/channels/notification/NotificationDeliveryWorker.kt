@@ -19,7 +19,9 @@ import com.retarget.creative.NudgeCopyCatalog
 import com.retarget.creative.RoomExposureLedger
 import com.retarget.goal.GoalDatabase
 import com.retarget.goal.PresetCatalog
+import com.retarget.scheduler.BudgetPolicy
 import com.retarget.scheduler.NudgeScheduler
+import com.retarget.scheduler.SnoozeSuppression
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -58,17 +60,19 @@ class NotificationDeliveryWorker(
                 return@withContext Result.success()
             }
 
-            // Get active goals with notifications enabled
+            // Get active goals with notifications enabled, minus any the user has
+            // snoozed (suppression is user-controllable, AGENTS.md §2).
+            val now = System.currentTimeMillis()
             val activeGoals = db.goalDao().observeActive().first()
                 .filter { it.settings.notificationEnabled }
+                .filterNot { SnoozeSuppression.isSnoozed(applicationContext, it.id, now) }
 
             if (activeGoals.isEmpty()) {
-                Log.i(TAG, "No active goals with notification enabled; nothing to do")
+                Log.i(TAG, "No eligible goals (none active+enabled, or all snoozed); nothing to do")
                 return@withContext Result.success()
             }
 
             // Compute slots using NudgeScheduler
-            val now = System.currentTimeMillis()
             val slots = NudgeScheduler.computeSlots(activeGoals, now, ledger)
 
             if (slots.isEmpty()) {
@@ -85,9 +89,28 @@ class NotificationDeliveryWorker(
                 return@withContext Result.retry()
             }
 
+            // Intra-day spacing: the ledger is channel-wide today (see the
+            // goal-scoped-ledger TODO in NudgeScheduler), so this gaps the most
+            // recent NOTIFICATION exposure of ANY goal — conservative and
+            // exactly what stops back-to-back spam when several goals compete.
+            // Skip (success, NOT retry — retrying would hammer the same window).
+            val lastNotificationAtMs = ledger
+                .recentExposures(limit = 100)
+                .firstOrNull { it.channel == Channel.NOTIFICATION }
+                ?.atMs
+            if (!BudgetPolicy.isWithinNotificationGap(lastNotificationAtMs, now)) {
+                Log.i(
+                    TAG,
+                    "Last notification " +
+                        (lastNotificationAtMs?.let { "${(now - it) / 60000} min ago" } ?: "n/a") +
+                        "; within " +
+                        "${BudgetPolicy.MIN_GAP_BETWEEN_NOTIFICATIONS_MS / 60000} min spacing; skipping",
+                )
+                return@withContext Result.success()
+            }
+
             // Get creative candidates for this goal
             val candidates = packSource.creativesFor(listOf(goal))
-
             if (candidates.isEmpty()) {
                 Log.w(TAG, "No creative candidates for goal ${goal.id}; retrying later")
                 return@withContext Result.retry()

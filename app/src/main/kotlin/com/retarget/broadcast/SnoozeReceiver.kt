@@ -10,13 +10,21 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.retarget.scheduler.NotificationScheduler
-import java.util.concurrent.TimeUnit
+import com.retarget.scheduler.SnoozeSuppression
 
 /**
  * Receiver for "Snooze 2h" action in notifications.
  *
- * Defers the next notification for this goal by 2 hours, respecting cooldown
- * policies from BudgetPolicy. Implemented per PHASE2-CAMPAIGN.md §2.1.
+ * Suppresses the next notification for this goal for 2 hours. Implemented per
+ * PHASE2-CAMPAIGN.md §2.1.
+ *
+ * Hotfix (v0.3.x scheduling consolidation): this receiver previously
+ * re-scheduled a legacy per-goal periodic worker via
+ * [NotificationScheduler.scheduleNotificationForGoal], which the global
+ * delivery worker ignored — so snoozing had no effect. It now persists a
+ * snooze-until timestamp that [com.retarget.channels.notification.NotificationDeliveryWorker]
+ * consults before delivering, making the snooze effective regardless of when
+ * the global worker fires.
  */
 class SnoozeReceiver : BroadcastReceiver() {
 
@@ -26,15 +34,18 @@ class SnoozeReceiver : BroadcastReceiver() {
             return
         }
 
-        // Cancel current scheduled work
-        NotificationScheduler.cancelNotificationForGoal(context, goalId)
+        val now = System.currentTimeMillis()
 
-        // Reschedule with 2-hour delay
-        NotificationScheduler.scheduleNotificationForGoal(
-            context,
-            goalId,
-            initialDelayMinutes = SNOOZE_DURATION_MINUTES,
+        // Record the snooze window the global delivery worker will honor.
+        SnoozeSuppression.snooze(
+            context = context,
+            goalId = goalId,
+            untilMs = now + SNOOZE_DURATION_MINUTES * 60 * 1000L,
         )
+
+        // Clean up any legacy per-goal periodic work left by earlier versions
+        // (scheduleNotificationForGoal is now a no-op shim that cancels).
+        NotificationScheduler.cancelNotificationForGoal(context, goalId)
     }
 
     companion object {
