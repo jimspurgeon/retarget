@@ -6,6 +6,21 @@ All notable changes to this project are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Fixed — notification scheduling consolidation & anti-spam (v0.3.x hotfix)
+
+- **Single scheduling path:** notification delivery now runs exclusively on the
+  global periodic worker. The legacy per-goal hourly workers
+  (`retarget_notification_<goalId>`) are no longer enqueued; an upgrade sweep
+  cancels any leftovers from previous installs. Previously both systems ran
+  concurrently, producing up to ~36 delivery attempts/day per goal.
+- **Intra-day spacing:** two notifications are now at least 90 minutes apart
+  (channel-wide, pending the goal-scoped ledger). Previously the daily cap
+  alone allowed 2-3 notifications to land within minutes.
+- **Snooze works:** the "Snooze 2h" notification action now records a
+  per-goal snooze-until timestamp that the delivery worker honors. Previously
+  snoozing only re-scheduled a legacy per-goal worker the global worker
+  ignored, so it had no effect.
+
 ### Data export & backup — M3.1 underway
 
 First milestone of Phase 3 ("The Agency", see docs/plans/PHASE3-AGENCY.md):

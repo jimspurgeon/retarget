@@ -19,7 +19,9 @@ import com.retarget.creative.NudgeCopyCatalog
 import com.retarget.creative.RoomExposureLedger
 import com.retarget.goal.GoalDatabase
 import com.retarget.goal.PresetCatalog
+import com.retarget.scheduler.BudgetPolicy
 import com.retarget.scheduler.NudgeScheduler
+import com.retarget.scheduler.SnoozeSuppression
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -58,17 +60,19 @@ class NotificationDeliveryWorker(
                 return@withContext Result.success()
             }
 
-            // Get active goals with notifications enabled
+            // Get active goals with notifications enabled, minus any the user has
+            // snoozed (suppression is user-controllable, AGENTS.md §2).
+            val now = System.currentTimeMillis()
             val activeGoals = db.goalDao().observeActive().first()
                 .filter { it.settings.notificationEnabled }
+                .filterNot { SnoozeSuppression.isSnoozed(applicationContext, it.id, now) }
 
             if (activeGoals.isEmpty()) {
-                Log.i(TAG, "No active goals with notification enabled; nothing to do")
+                Log.i(TAG, "No eligible goals (none active+enabled, or all snoozed); nothing to do")
                 return@withContext Result.success()
             }
 
             // Compute slots using NudgeScheduler
-            val now = System.currentTimeMillis()
             val slots = NudgeScheduler.computeSlots(activeGoals, now, ledger)
 
             if (slots.isEmpty()) {
@@ -85,9 +89,28 @@ class NotificationDeliveryWorker(
                 return@withContext Result.retry()
             }
 
+            // Intra-day spacing: the ledger is channel-wide today (see the
+            // goal-scoped-ledger TODO in NudgeScheduler), so this gaps the most
+            // recent NOTIFICATION exposure of ANY goal — conservative and
+            // exactly what stops back-to-back spam when several goals compete.
+            // Skip (success, NOT retry — retrying would hammer the same window).
+            val lastNotificationAtMs = ledger
+                .recentExposures(limit = 100)
+                .firstOrNull { it.channel == Channel.NOTIFICATION }
+                ?.atMs
+            if (!BudgetPolicy.isWithinNotificationGap(lastNotificationAtMs, now)) {
+                Log.i(
+                    TAG,
+                    "Last notification " +
+                        (lastNotificationAtMs?.let { "${(now - it) / 60000} min ago" } ?: "n/a") +
+                        "; within " +
+                        "${BudgetPolicy.MIN_GAP_BETWEEN_NOTIFICATIONS_MS / 60000} min spacing; skipping",
+                )
+                return@withContext Result.success()
+            }
+
             // Get creative candidates for this goal
             val candidates = packSource.creativesFor(listOf(goal))
-
             if (candidates.isEmpty()) {
                 Log.w(TAG, "No creative candidates for goal ${goal.id}; retrying later")
                 return@withContext Result.retry()
@@ -136,15 +159,22 @@ class NotificationDeliveryWorker(
                 ),
             )
 
-            // Build and deliver notification. copyLine falls back to the goal's
-            // display name if the creative carries no copy (defensive: an empty
-            // copyPool previously crashed this worker with NoSuchElementException).
+            // Build and deliver notification. Copy is chosen from the theme
+            // catalog with no-immediate-repeat: the last line shown for this
+            // theme is excluded from the draw so consecutive nudges never
+            // repeat. Falls back to the goal's display name if the creative
+            // carries no copy (defensive: an empty copyPool previously crashed
+            // this worker with NoSuchElementException).
             val fallbackCopy = "A gentle nudge toward your goal."
+            val theme = selected.goalTheme
+            val copyPrefs = applicationContext.getSharedPreferences(COPY_STATE_PREFS, Context.MODE_PRIVATE)
+            val lastLine = copyPrefs.getString(lastLineKey(theme), null)
+            val selectedLine = NudgeCopyCatalog.selectLine(theme, lastLine)
             val spec = NotificationSpec(
                 goalId = goal.id,
                 creative = selected,
                 title = PresetCatalog.byId(goal.presetId)?.displayName ?: goal.displayName,
-                copyLine = selected.copyPool.randomOrNull() ?: fallbackCopy,
+                copyLine = selectedLine.ifEmpty { fallbackCopy },
                 actions = actions,
             )
 
@@ -156,8 +186,10 @@ class NotificationDeliveryWorker(
                 return@withContext Result.retry()
             }
 
-            // Record exposure
+            // Record exposure, then persist the delivered copy line so the next
+            // nudge for this theme avoids repeating it.
             ledger.recordExposure(selected.id, selected.subTheme, Channel.NOTIFICATION, now)
+            copyPrefs.edit().putString(lastLineKey(theme), selectedLine).apply()
             Log.i(TAG, "Notification delivered: goal=${goal.id}, creative=${selected.id}")
 
             // Schedule next slot: recompute with the freshly-updated ledger and take
@@ -180,6 +212,11 @@ class NotificationDeliveryWorker(
 
     companion object {
         private const val TAG = "NotificationDeliveryWorker"
+        private const val COPY_STATE_PREFS = "nudge_copy_state"
+
+        /** SharedPreferences key holding the last delivered line for [theme]. */
+        internal fun lastLineKey(theme: com.retarget.creative.GoalTheme): String =
+            "last_line_${theme.name}"
     }
 }
 

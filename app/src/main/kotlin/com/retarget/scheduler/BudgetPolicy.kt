@@ -24,6 +24,15 @@ object BudgetPolicy {
     const val SATURATION_SKIP_THRESHOLD = 2 // dismissals within window triggers skip
     const val SATURATION_WINDOW_MS = 6 * 60 * 60 * 1000L // 6h
 
+    /**
+     * Minimum spacing between two delivered NOTIFICATION-channel exposures
+     * (any goal — the ledger is channel-wide today; see the goal-scoped-ledger
+     * TODO in NudgeScheduler). Caps alone did not prevent 2-3 notifications
+     * landing within minutes when the legacy per-goal and global periodic
+     * workers fired concurrently; this gap enforces intra-day pacing.
+     */
+    const val MIN_GAP_BETWEEN_NOTIFICATIONS_MS = 90 * 60 * 1000L // 90 minutes
+
     fun isQuietHour(
         hour: Int,
         quietStart: Int = DEFAULT_QUIET_START_HOUR,
@@ -74,5 +83,19 @@ object BudgetPolicy {
         if (lastDismissal != null && nowMs - lastDismissal < MIN_COOLDOWN_AFTER_DISMISS_MS) return false
 
         return true
+    }
+
+    /**
+     * True if a new NOTIFICATION delivery at [nowMs] respects the
+     * [MIN_GAP_BETWEEN_NOTIFICATIONS_MS] spacing relative to [lastNotificationAtMs]
+     * (the most recent NOTIFICATION exposure, any goal). Null "last" means no
+     * prior exposure — always allowed.
+     */
+    fun isWithinNotificationGap(
+        lastNotificationAtMs: Long?,
+        nowMs: Long,
+    ): Boolean {
+        if (lastNotificationAtMs == null) return true
+        return nowMs - lastNotificationAtMs >= MIN_GAP_BETWEEN_NOTIFICATIONS_MS
     }
 }

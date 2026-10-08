@@ -51,6 +51,12 @@ class NotificationSchedulerManager(
             return
         }
         isActive = true
+
+        // Migration sweep (once per process): remove legacy per-goal periodic
+        // delivery work so exactly one periodic worker — the global one below —
+        // can ever be active after the v0.3.x consolidation.
+        sweepLegacyGoalWork(context)
+
         scope.launch {
             goalRepository.observeActive().collectLatest { goals ->
                 handleGoalUpdate(goals)
@@ -155,6 +161,38 @@ class NotificationSchedulerManager(
         fun cancelAllNotificationSchedules(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(WORK_TAG)
             Log.d(TAG, "Notification delivery cancelled")
+        }
+
+        /**
+         * One-shot upgrade migration: cancels ALL legacy per-goal periodic
+         * notification work (unique names `retarget_notification_<goalId>`)
+         * enqueued by the retired [NotificationScheduler] path.
+         *
+         * Because the legacy names embed goal IDs (and historical goal IDs are
+         * not reliably enumerable — goals can be deleted between releases),
+         * this cancels by WorkManager TAG instead of unique name. The legacy
+         * per-goal requests carry the tag `retarget_notification_delivery` in
+         * every v0.3.x release (added in f41d964, first tagged v0.3.0), so a
+         * tag cancellation covers every legacy instance installed by a
+         * released build — including goals no longer in the database — without
+         * enumerating IDs at all.
+         *
+         * Also clears any same-tagged-but-stale generic instances, making the
+         * scheduleNotificationDelivery re-enqueue below the sole live periodic
+         * work. Idempotent; cheap; safe to call repeatedly.
+         */
+        fun sweepLegacyGoalWork(context: Context) {
+            try {
+                WorkManager.getInstance(context).cancelAllWorkByTag(WORK_TAG)
+                Log.i(TAG, "Legacy per-goal notification work swept (tag=$WORK_TAG)")
+            } catch (e: IllegalStateException) {
+                // WorkManager not yet initialized (e.g., Robolectric environments
+                // before test-init, or exotic startup orders). The sweep is a
+                // best-effort migration nicety, not a correctness gate — legacy
+                // work is also cancelled opportunistically whenever
+                // NotificationScheduler's shims run — so log and move on.
+                Log.w(TAG, "Legacy work sweep skipped; WorkManager unavailable", e)
+            }
         }
     }
 }

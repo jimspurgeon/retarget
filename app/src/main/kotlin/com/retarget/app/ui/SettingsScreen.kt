@@ -310,7 +310,6 @@ class SettingsViewModel
                         channelName = channelName,
                         newEnabled = newEnabled,
                         goalId = goal.id,
-                        settings = updatedSettings,
                     )
                 }
             }
@@ -321,14 +320,14 @@ class SettingsViewModel
             channelName: String,
             newEnabled: Boolean,
             goalId: Long,
-            settings: CampaignSettings,
         ) {
             // This runs in a CoroutineScope, need to dispatch to main for Toast
             android.os.Handler(context.mainLooper).post {
                 when (channelName) {
                     "Notification" -> {
                         if (!newEnabled) {
-                            // Cancel notification WorkManager job
+                            // Cancel any legacy per-goal notification work (cleanup;
+                            // the global delivery worker filters by per-goal settings)
                             NotificationScheduler.cancelAllNotificationsForGoal(context, goalId)
                             Toast.makeText(
                                 context,
@@ -336,10 +335,10 @@ class SettingsViewModel
                                 Toast.LENGTH_LONG,
                             ).show()
                         } else {
-                            // Re-enable if notificationTargetsPerDay > 0
-                            if (settings.notificationTargetsPerDay > 0) {
-                                NotificationScheduler.scheduleNotificationForGoal(context, goalId)
-                            }
+                            // Nothing to schedule: NotificationSchedulerManager observes
+                            // the settings change and (re)starts the global delivery
+                            // worker — the single scheduling path after the
+                            // v0.3.x consolidation (no per-goal periodic work).
                             Toast.makeText(
                                 context,
                                 context.getString(R.string.toast_notifications_resumed),

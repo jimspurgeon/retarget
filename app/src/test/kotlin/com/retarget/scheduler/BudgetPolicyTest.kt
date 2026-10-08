@@ -98,4 +98,38 @@ class BudgetPolicyTest {
             ),
         )
     }
+
+    @Test
+    fun `notification gap allows delivery after 90 min`() {
+        val now = 1_000_000_000L
+        val ninetyMinAgo = now - 90 * 60 * 1000L
+
+        assertTrue(
+            "Exactly 90 min gap should allow",
+            BudgetPolicy.isWithinNotificationGap(ninetyMinAgo, now),
+        )
+        assertTrue(
+            "More than 90 min gap should allow",
+            BudgetPolicy.isWithinNotificationGap(now - 100 * 60 * 1000L, now),
+        )
+        assertTrue(
+            "No prior notification should always allow",
+            BudgetPolicy.isWithinNotificationGap(null, now),
+        )
+    }
+
+    @Test
+    fun `notification gap blocks delivery within 90 min`() {
+        val now = 1_000_000_000L
+        val eightyFiveMinAgo = now - 85 * 60 * 1000L
+
+        assertFalse(
+            "85 min gap should block",
+            BudgetPolicy.isWithinNotificationGap(eightyFiveMinAgo, now),
+        )
+        assertFalse(
+            "Same timestamp should block",
+            BudgetPolicy.isWithinNotificationGap(now, now),
+        )
+    }
 }
