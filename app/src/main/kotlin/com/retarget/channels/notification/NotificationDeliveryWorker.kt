@@ -136,15 +136,22 @@ class NotificationDeliveryWorker(
                 ),
             )
 
-            // Build and deliver notification. copyLine falls back to the goal's
-            // display name if the creative carries no copy (defensive: an empty
-            // copyPool previously crashed this worker with NoSuchElementException).
+            // Build and deliver notification. Copy is chosen from the theme
+            // catalog with no-immediate-repeat: the last line shown for this
+            // theme is excluded from the draw so consecutive nudges never
+            // repeat. Falls back to the goal's display name if the creative
+            // carries no copy (defensive: an empty copyPool previously crashed
+            // this worker with NoSuchElementException).
             val fallbackCopy = "A gentle nudge toward your goal."
+            val theme = selected.goalTheme
+            val copyPrefs = applicationContext.getSharedPreferences(COPY_STATE_PREFS, Context.MODE_PRIVATE)
+            val lastLine = copyPrefs.getString(lastLineKey(theme), null)
+            val selectedLine = NudgeCopyCatalog.selectLine(theme, lastLine)
             val spec = NotificationSpec(
                 goalId = goal.id,
                 creative = selected,
                 title = PresetCatalog.byId(goal.presetId)?.displayName ?: goal.displayName,
-                copyLine = selected.copyPool.randomOrNull() ?: fallbackCopy,
+                copyLine = selectedLine.ifEmpty { fallbackCopy },
                 actions = actions,
             )
 
@@ -156,8 +163,10 @@ class NotificationDeliveryWorker(
                 return@withContext Result.retry()
             }
 
-            // Record exposure
+            // Record exposure, then persist the delivered copy line so the next
+            // nudge for this theme avoids repeating it.
             ledger.recordExposure(selected.id, selected.subTheme, Channel.NOTIFICATION, now)
+            copyPrefs.edit().putString(lastLineKey(theme), selectedLine).apply()
             Log.i(TAG, "Notification delivered: goal=${goal.id}, creative=${selected.id}")
 
             // Schedule next slot: recompute with the freshly-updated ledger and take
@@ -180,6 +189,11 @@ class NotificationDeliveryWorker(
 
     companion object {
         private const val TAG = "NotificationDeliveryWorker"
+        private const val COPY_STATE_PREFS = "nudge_copy_state"
+
+        /** SharedPreferences key holding the last delivered line for [theme]. */
+        internal fun lastLineKey(theme: com.retarget.creative.GoalTheme): String =
+            "last_line_${theme.name}"
     }
 }
 
