@@ -114,6 +114,40 @@ object NudgeScheduler {
                 }
             }
 
+            // Process lock-screen ticker channel (M3.3, PHASE3-AGENCY.md §4):
+            // low-interruption ongoing notification. Coordinates through the same
+            // crowding backoff (MIN_GAP_MS) as the other channels.
+            if (settings.tickerEnabled) {
+                val startOfDayMs = Instant.ofEpochMilli(nowMs)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                    .atStartOfDay(ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
+                val sentToday = ledger.exposuresTodayByChannel(Channel.LOCK_SCREEN_TICKER, startOfDayMs)
+                if (TickerPolicy.canDeliver(
+                        goalId = goalId,
+                        nowMs = nowMs,
+                        settings = settings,
+                        sentToday = sentToday,
+                        dismissedSince = emptyList(),
+                    )) {
+                    if (passesCrowdingBackoff(goalId, Channel.LOCK_SCREEN_TICKER, nowMs, ledger)) {
+                        val basePriority = computeBasePriority(goal, nowMs, random)
+                        val boostedPriority = applyFreshStartBoost(basePriority, nowMs)
+                        slots.add(
+                            Slot(
+                                goalId = goalId,
+                                channel = Channel.LOCK_SCREEN_TICKER,
+                                creative = null, // Creative selection deferred to delivery
+                                scheduledTimeMs = nowMs,
+                                priority = boostedPriority,
+                            )
+                        )
+                    }
+                }
+            }
+
             // TODO: Overlay and Widget channels to be implemented in future milestones
         }
 
