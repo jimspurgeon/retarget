@@ -72,6 +72,14 @@
     <string name="widget_config_no_goals">Add a goal first — the widget shows it once you have one.</string>
     <string name="widget_config_pick_first">Pick a goal to continue</string>
     <string name="widget_pin_unsupported">Your launcher doesn’t support pinning widgets — add “Retarget” from the launcher’s widget picker instead.</string>
+    <!-- Lock-screen ticker (M3.3) -->
+    <string name="channel_ticker_name">Goal ticker</string>
+    <string name="settings_channel_ticker">Lock-screen ticker</string>
+    <string name="settings_ticker_description">Shows a silent goal ticker on your lock screen; you can turn it off anytime. Limited to 2 per day and never shown during quiet hours.</string>
+    <string name="toast_ticker_paused">Lock-screen ticker paused. Tap to re-enable.</string>
+    <string name="toast_ticker_resumed">Lock-screen ticker re-enabled.</string>
+    <string name="dashboard_pacing_ticker">%1$d nudges today for %2$s</string>
+
     <!-- Settings: export my data -->
     <string name="settings_export_action">Export my data</string>
     <string name="settings_export_subtitle">Save a copy of your goals, settings, exposure history and check-ins as a JSON file on your device. Nothing is sent anywhere.</string>
