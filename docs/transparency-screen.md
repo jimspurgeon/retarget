@@ -21,8 +21,10 @@ it's just there when you glance at your phone.
   surface the app offers, so nothing appears there without your explicit say-so.
 - **Hard cap: 2 per day.** The ticker can never show more than twice a day,
   regardless of settings.
-- **Quiet hours respected.** The ticker never appears during your configured
-  quiet hours (22:00–07:00 by default).
+- **Quiet hours respected.** New tickers are not delivered during quiet hours
+  (22:00–07:00 by default), and a ticker already showing is removed shortly
+  after quiet hours begin — typically within a couple of hours, since the
+  removal check runs on the app's periodic schedule.
 - **Crowding-coordinated.** The scheduler counts ticker slots against the same
   crowding backoff as wallpaper and notification nudges, so turning the ticker
   on can't double your total interruption.

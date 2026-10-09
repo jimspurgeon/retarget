@@ -95,10 +95,14 @@ class NotificationSchedulerManager(
     }
 
     private fun handleGoalUpdate(goals: List<com.retarget.goal.GoalEntity>) {
+        // Ticker-enabled goals need the delivery worker too: the lock-screen ticker
+        // posts through NotificationDeliveryWorker (M3.3, PHASE3-AGENCY.md §4), and a
+        // ticker-only goal (notification off, ticker on) must still schedule it —
+        // including the quiet-hours cancel sweep for already-posted tickers.
         val shouldRun = goals.any { goal ->
             try {
                 val settings = com.retarget.goal.GoalConverters().jsonToSettings(goal.settingsJson)
-                settings.notificationEnabled
+                settings.notificationEnabled || settings.tickerEnabled
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to parse settings for goal ${goal.id}; treating as disabled", e)
                 false
@@ -107,7 +111,7 @@ class NotificationSchedulerManager(
 
         if (shouldRun) {
             scheduleNotificationDelivery(context)
-            Log.d(TAG, "Started notification delivery (active goals with notification=${goals.size})")
+            Log.d(TAG, "Started notification delivery (active channel-enabled goals=${goals.size})")
         } else {
             cancelAllNotificationSchedules(context)
             Log.d(TAG, "Cancelled notification delivery (no active notification-enabled goals)")
