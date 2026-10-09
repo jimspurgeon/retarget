@@ -10,10 +10,10 @@ import com.retarget.analytics.CheckInDao
 import com.retarget.creative.Channel
 import com.retarget.creative.CreativeImageCache
 import com.retarget.creative.ExposureDao
-import com.retarget.creative.PersistentCreativeRepository
 import com.retarget.goal.GoalDao
 import com.retarget.goal.GoalEntity
 import com.retarget.goal.PresetCatalog
+import com.retarget.learning.LearningStateDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -66,12 +66,24 @@ class DefaultWidgetStateSource
     constructor(
         private val context: android.content.Context,
         private val goalDao: GoalDao,
-        private val exposureDao: ExposureDao,
         private val checkInDao: CheckInDao,
-        private val creativeRepository: PersistentCreativeRepository,
+        private val exposureDao: ExposureDao,
+        private val learningDao: LearningStateDao,
+        private val creativeRepository: com.retarget.creative.PersistentCreativeRepository,
         private val zoneId: ZoneId,
         private val widgetGoalPreference: WidgetGoalPreferenceStore,
     ) : WidgetStateSource {
+        private val checkInWithReward by lazy {
+            // Assembled from DAOs rather than injected: RewardRecorder is new in
+            // M3.4 and the source owns the DB domain it reads (widget check-ins
+            // were already a self-contained write path). Lazy to avoid paying
+            // setup cost when only current()/channelEnablement() are used.
+            val db = com.retarget.goal.GoalDatabase.get(context)
+            com.retarget.learning.CheckInWithReward(
+                db,
+                com.retarget.learning.RewardRecorder(db.learningStateDao(), db.exposureDao()),
+            )
+        }
         override suspend fun current(): WidgetSnapshot =
             withContext(Dispatchers.IO) {
                 val goal = primaryGoal() ?: return@withContext WidgetSnapshot.Empty
@@ -97,9 +109,7 @@ class DefaultWidgetStateSource
                 // corruption) degrades to "no check-in" + a log line instead of
                 // propagating out of the Glance ActionCallback (gatekeeper M4a).
                 try {
-                    checkInDao.insert(
-                        com.retarget.analytics.CheckInEntity(goalId = goal.id, atMs = System.currentTimeMillis(), notes = null),
-                    )
+                    checkInWithReward.checkIn(goalId = goal.id)
                     goal.id
                 } catch (e: Exception) {
                     android.util.Log.e(TAG, "Widget check-in insert failed for goalId=${goal.id}", e)

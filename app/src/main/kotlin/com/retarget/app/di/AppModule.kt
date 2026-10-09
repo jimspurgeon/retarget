@@ -77,6 +77,9 @@ object AppModule {
     fun provideExposureDao(db: com.retarget.goal.GoalDatabase): ExposureDao = db.exposureDao()
 
     @Provides
+    fun provideLearningStateDao(db: com.retarget.goal.GoalDatabase): com.retarget.learning.LearningStateDao = db.learningStateDao()
+
+    @Provides
     fun provideCheckInDao(db: com.retarget.goal.GoalDatabase): com.retarget.analytics.CheckInDao = db.checkInDao()
 
     @Provides

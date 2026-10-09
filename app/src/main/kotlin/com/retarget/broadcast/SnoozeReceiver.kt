@@ -9,8 +9,13 @@ package com.retarget.broadcast
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import com.retarget.goal.GoalDatabase
+import com.retarget.learning.RewardRecorder
 import com.retarget.scheduler.NotificationScheduler
 import com.retarget.scheduler.SnoozeSuppression
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Receiver for "Snooze 2h" action in notifications.
@@ -42,6 +47,19 @@ class SnoozeReceiver : BroadcastReceiver() {
             goalId = goalId,
             untilMs = now + SNOOZE_DURATION_MINUTES * 60 * 1000L,
         )
+
+        // M3.4: a snooze is a mild negative reward (−0.25) — the nudge was
+        // mistimed, not unwanted. Fire-and-forget on IO: losing one reward to
+        // process death is acceptable (statistical input, not transactional).
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val db = GoalDatabase.get(context)
+                RewardRecorder(db.learningStateDao(), db.exposureDao())
+                    .recordSnooze(goalId, now)
+            } catch (e: Exception) {
+                android.util.Log.w("SnoozeReceiver", "Failed to record snooze reward for goalId=$goalId", e)
+            }
+        }
 
         // Clean up any legacy per-goal periodic work left by earlier versions
         // (scheduleNotificationForGoal is now a no-op shim that cancels).
