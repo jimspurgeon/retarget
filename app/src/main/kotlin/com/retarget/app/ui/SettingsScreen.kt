@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retarget.app.R
+import com.retarget.channels.notification.TickerChannel
 import com.retarget.goal.CampaignSettings
 import com.retarget.goal.GoalRepository
 import com.retarget.scheduler.NotificationScheduler
@@ -177,6 +178,7 @@ private fun ChannelToggleCard(
                     text = when (channelName) {
                         "Wallpaper" -> stringResource(R.string.settings_channel_wallpaper)
                         "Notification" -> stringResource(R.string.settings_channel_notification)
+                        "Ticker" -> stringResource(R.string.settings_channel_ticker)
                         else -> channelName
                     },
                     style = MaterialTheme.typography.titleMedium,
@@ -187,6 +189,14 @@ private fun ChannelToggleCard(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (channelName == "Ticker") {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.settings_ticker_description),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    )
+                }
             }
             Switch(checked = enabled, onCheckedChange = { onToggle() })
         }
@@ -288,6 +298,7 @@ class SettingsViewModel
                         when (channelName) {
                             "Wallpaper" -> !currentSettings.wallpaperEnabled
                             "Notification" -> !currentSettings.notificationEnabled
+                            "Ticker" -> !currentSettings.tickerEnabled
                             else -> false
                         }
 
@@ -298,6 +309,9 @@ class SettingsViewModel
 
                             "Notification" ->
                                 currentSettings.copy(notificationEnabled = newEnabled)
+
+                            "Ticker" ->
+                                currentSettings.copy(tickerEnabled = newEnabled)
 
                             else -> currentSettings
                         }
@@ -350,6 +364,23 @@ class SettingsViewModel
                         // WallpaperSchedulerManager will handle the change
                         // No Toast needed for wallpaper toggle
                     }
+                    "Ticker" -> {
+                        if (!newEnabled) {
+                            // Remove any showing ticker immediately (reversibility,
+                            // AGENTS.md §2); the delivery worker also filters disabled
+                            // goals on its next run.
+                            TickerChannel(context).cancelForGoal(goalId)
+                        }
+                        // On enable there is nothing to schedule here: the delivery
+                        // worker picks up ticker-enabled goals on its next cycle.
+                        Toast.makeText(
+                            context,
+                            context.getString(
+                                if (newEnabled) R.string.toast_ticker_resumed else R.string.toast_ticker_paused,
+                            ),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
                 }
             }
         }
@@ -369,6 +400,11 @@ class SettingsViewModel
                             channelName = "Notification",
                             enabled = settings.notificationEnabled,
                             targetsPerDay = settings.notificationTargetsPerDay,
+                        ),
+                        ChannelSetting(
+                            channelName = "Ticker",
+                            enabled = settings.tickerEnabled,
+                            targetsPerDay = settings.tickerTargetsPerDay,
                         ),
                     ),
             )

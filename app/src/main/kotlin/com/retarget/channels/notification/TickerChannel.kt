@@ -34,11 +34,11 @@ import androidx.core.content.ContextCompat
  * This class is a "dumb pipe" like [NotificationChannel]: the scheduler decides
  * what and when, this class only executes delivery.
  *
- * Copy note (logged decision per the M3.3 dispatch spec): ticker copy is
- * hardcoded here mirroring the NotificationChannel.kt precedent ("Check in",
- * "Snooze 2h"); routing through com.retarget strings is owned by the W2/UI
- * worker. Framing stays neutral and factual — no fear/shame language
- * (pre-registered decision #5).
+ * Copy note (updated per the M3.3 UI dispatch): user-visible names and
+ * descriptions live in com.retarget strings.xml (channel_ticker_name,
+ * settings_ticker_description, dashboard_pacing_ticker); the pacing line is
+ * composed in NotificationDeliveryWorker. Framing stays neutral and factual
+ * — no fear/shame language (pre-registered decision #5).
  */
 class TickerChannel(
     private val context: Context,
@@ -123,6 +123,19 @@ class TickerChannel(
      */
     fun cancel(notificationId: Int) {
         notificationManager.cancel(notificationId)
+    }
+
+    /**
+     * Removes the ticker notification for the given goal, computing the same
+     * stable per-goal notification id the delivery worker uses (see
+     * NotificationDeliveryWorker.TICKER_NOTIFICATION_ID_BASE).
+     *
+     * Convenience for callers (e.g. SettingsViewModel) that have a context and
+     * a goal id and should not need to know the id scheme. No-op if no ticker
+     * is showing.
+     */
+    fun cancelForGoal(goalId: Long) {
+        cancel((NotificationDeliveryWorker.TICKER_NOTIFICATION_ID_BASE + goalId).toInt())
     }
 
     /**
