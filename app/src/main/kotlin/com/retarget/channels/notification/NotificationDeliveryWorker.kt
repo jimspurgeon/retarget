@@ -56,7 +56,7 @@ class NotificationDeliveryWorker(
 
             // Check quiet hours first
             val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-            if (!com.retarget.scheduler.WallpaperRotationPolicy.shouldRotateNow(hour)) {
+            if (BudgetPolicy.isQuietHour(hour)) {
                 Log.i(TAG, "Quiet hours active (hour=$hour); skipping notification")
                 return@withContext Result.success()
             }
