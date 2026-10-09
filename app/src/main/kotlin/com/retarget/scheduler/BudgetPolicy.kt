@@ -20,6 +20,14 @@ object BudgetPolicy {
 
     const val NOTIFICATION_HARD_MAX_PER_DAY_PER_GOAL = 3
     const val OVERLAY_HARD_MAX_PER_DAY = 1
+
+    /**
+     * Lock-screen ticker hard cap (M3.3, PHASE3-AGENCY.md §4): the ticker is a
+     * low-key ambient surface, so it gets its own (low) hard max. Even though the
+     * notification is ongoing (not interruptive), each update is a fresh glance
+     * impression, so it counts against a daily budget.
+     */
+    const val TICKER_HARD_MAX_PER_DAY = 2
     const val MIN_COOLDOWN_AFTER_DISMISS_MS = 2 * 60 * 60 * 1000L // 2h
     const val SATURATION_SKIP_THRESHOLD = 2 // dismissals within window triggers skip
     const val SATURATION_WINDOW_MS = 6 * 60 * 60 * 1000L // 6h
@@ -61,6 +69,7 @@ object BudgetPolicy {
             when (channel) {
                 Channel.NOTIFICATION -> NOTIFICATION_HARD_MAX_PER_DAY_PER_GOAL
                 Channel.OVERLAY -> OVERLAY_HARD_MAX_PER_DAY
+                Channel.LOCK_SCREEN_TICKER -> TICKER_HARD_MAX_PER_DAY
                 else -> Int.MAX_VALUE // ambient channels are self-limiting
             }
 

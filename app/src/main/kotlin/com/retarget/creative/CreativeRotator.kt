@@ -157,4 +157,4 @@ data class RecentExposure(
     val atMs: Long,
 )
 
-enum class Channel { WALLPAPER, NOTIFICATION, OVERLAY, WIDGET }
+enum class Channel { WALLPAPER, NOTIFICATION, OVERLAY, WIDGET, LOCK_SCREEN_TICKER }
