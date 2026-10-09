@@ -58,6 +58,20 @@ class NotificationDeliveryWorker(
             val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             if (BudgetPolicy.isQuietHour(hour)) {
                 Log.i(TAG, "Quiet hours active (hour=$hour); skipping notification")
+                // The ticker is an ONGOING notification: one delivered before
+                // quiet hours (e.g. 21:00) would otherwise linger on the lock
+                // screen through the night. Cancel showing tickers so the
+                // ticker is truly ABSENT during quiet hours — "visible on lock
+                // screen, absent during quiet hours" (PHASE3-AGENCY.md §4;
+                // reversibility: the off switch must actually turn it off,
+                // AGENTS.md §2). Cheap: one DAO read + manager.cancel calls;
+                // this worker already runs periodically.
+                val cancelableTickerGoals = db.goalDao().observeActive().first()
+                    .filter { it.settings.tickerEnabled }
+                for (goalToCancel in cancelableTickerGoals) {
+                    tickerChannel.cancelForGoal(goalToCancel.id)
+                    Log.i(TAG, "Cancelled ticker for goal ${goalToCancel.id} (quiet hours)")
+                }
                 return@withContext Result.success()
             }
 
