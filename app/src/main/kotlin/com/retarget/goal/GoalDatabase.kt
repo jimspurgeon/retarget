@@ -15,6 +15,8 @@ import com.retarget.analytics.CheckInDao
 import com.retarget.analytics.CheckInEntity
 import com.retarget.creative.ExposureDao
 import com.retarget.creative.ExposureEntity
+import com.retarget.learning.LearningStateDao
+import com.retarget.learning.LearningStateEntity
 
 @Database(
     entities = [
@@ -23,8 +25,9 @@ import com.retarget.creative.ExposureEntity
         com.retarget.creative.CreativePackEntity::class,
         com.retarget.creative.CreativeEntity::class,
         CheckInEntity::class,
+        LearningStateEntity::class,
     ],
-    version = 3,
+    version = 4,
 )
 @TypeConverters(GoalConverters::class)
 abstract class GoalDatabase : RoomDatabase() {
@@ -35,6 +38,8 @@ abstract class GoalDatabase : RoomDatabase() {
     abstract fun creativePackDao(): com.retarget.creative.CreativePackDao
 
     abstract fun checkInDao(): CheckInDao
+
+    abstract fun learningStateDao(): LearningStateDao
 
     companion object {
         @Volatile
