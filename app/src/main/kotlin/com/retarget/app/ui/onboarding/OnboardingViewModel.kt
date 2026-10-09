@@ -22,6 +22,8 @@ data class OnboardingUiState(
     val presets: List<PresetCampaign> = PresetCatalog.ALL,
     val installing: String? = null, // presetId currently being activated
     val done: Boolean = false,
+    /** Opt-in for the lock-screen ticker (PHASE3-AGENCY.md §8 decision #4). Default off. */
+    val tickerOptIn: Boolean = false,
 )
 
 /**
@@ -40,9 +42,18 @@ class OnboardingViewModel
             if (_state.value.installing != null) return // guard double-taps
             _state.value = _state.value.copy(installing = presetId)
             viewModelScope.launch {
-                repo.installPreset(presetId, nowMs = System.currentTimeMillis())
+                repo.installPreset(
+                    presetId,
+                    nowMs = System.currentTimeMillis(),
+                    tickerEnabled = _state.value.tickerOptIn,
+                )
                 _state.value = _state.value.copy(installing = null, done = true)
             }
+        }
+
+        /** Toggles the lock-screen ticker opt-in (discovery prompt, decision #4). */
+        fun setTickerOptIn(enabled: Boolean) {
+            _state.value = _state.value.copy(tickerOptIn = enabled)
         }
 
         /** Skip onboarding entirely (no goal installed yet; reachable later). */

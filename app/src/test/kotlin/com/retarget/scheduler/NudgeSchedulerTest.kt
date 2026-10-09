@@ -45,6 +45,8 @@ class NudgeSchedulerTest {
             active: Boolean = true,
             notificationEnabled: Boolean = true,
             wallpaperEnabled: Boolean = true,
+            tickerEnabled: Boolean = false,
+            tickerTargetsPerDay: Int = CampaignSettings.MAX_TICKER_PER_DAY,
             createdAt: Long = FIXED_NOW - 48 * 60 * 60 * 1000L, // 2 days ago
         ): GoalEntity = GoalEntity(
             id = id,
@@ -56,8 +58,10 @@ class NudgeSchedulerTest {
                 CampaignSettings(
                     wallpaperEnabled = wallpaperEnabled,
                     notificationEnabled = notificationEnabled,
+                    tickerEnabled = tickerEnabled,
                     wallpaperTargetsPerDay = 2,
                     notificationTargetsPerDay = 3,
+                    tickerTargetsPerDay = tickerTargetsPerDay,
                 ),
             ),
         )
@@ -261,6 +265,131 @@ class NudgeSchedulerTest {
         assertTrue(
             "Should only produce slots for enabled channels",
             slots.none { it.channel == Channel.WALLPAPER },
+        )
+    }
+
+    // ---- Lock-screen ticker slot computation (M3.3, PHASE3-AGENCY.md §4) ----
+
+    @Test
+    fun `ticker slot emitted when enabled`() {
+        val goal = makeGoal(
+            id = 1L,
+            tickerEnabled = true,
+            notificationEnabled = false,
+            wallpaperEnabled = false,
+        )
+
+        val slots = NudgeScheduler.computeSlots(listOf(goal), FIXED_NOW, makeMockLedger())
+
+        assertEquals(
+            "Enabled ticker should produce exactly one slot (all other channels off)",
+            1,
+            slots.size,
+        )
+        assertEquals(Channel.LOCK_SCREEN_TICKER, slots[0].channel)
+        assertEquals(goal.id, slots[0].goalId)
+    }
+
+    @Test
+    fun `no ticker slot when disabled by default`() {
+        val goal = makeGoal(
+            id = 1L,
+            tickerEnabled = false, // decision #4: default off
+            notificationEnabled = false,
+            wallpaperEnabled = false,
+        )
+
+        val slots = NudgeScheduler.computeSlots(listOf(goal), FIXED_NOW, makeMockLedger())
+
+        assertEquals(
+            "Disabled ticker must produce no slots (all other channels off)",
+            0,
+            slots.size,
+        )
+    }
+
+    @Test
+    fun `no ticker slot during quiet hours`() {
+        // 11 PM — quiet hours (22:00–07:00 default window)
+        val nightTime = LocalDate.of(2025, 9, 3).atTime(23, 0)
+            .atZone(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+
+        val goal = makeGoal(
+            id = 1L,
+            tickerEnabled = true,
+            notificationEnabled = false,
+            wallpaperEnabled = false,
+        )
+
+        val slots = NudgeScheduler.computeSlots(listOf(goal), nightTime, makeMockLedger())
+
+        assertEquals(
+            "Ticker must be ABSENT during quiet hours (PHASE3-AGENCY.md §4)",
+            0,
+            slots.count { it.channel == Channel.LOCK_SCREEN_TICKER },
+        )
+    }
+
+    @Test
+    fun `ticker slot blocked by crowding backoff`() {
+        val goal = makeGoal(
+            id = 1L,
+            tickerEnabled = true,
+            notificationEnabled = false,
+            wallpaperEnabled = false,
+        )
+
+        // A NOTIFICATION-channel exposure 30 minutes ago (within MIN_GAP_MS of 60 min)
+        // for a different channel must crowd out the ticker slot.
+        val recentNotificationExposure = RecentExposure(
+            creativeId = "creative_1",
+            subTheme = "morning",
+            channel = Channel.NOTIFICATION,
+            atMs = FIXED_NOW - 30 * 60 * 1000L,
+        )
+
+        val slots = NudgeScheduler.computeSlots(
+            listOf(goal),
+            FIXED_NOW,
+            makeMockLedger(listOf(recentNotificationExposure)),
+        )
+
+        assertEquals(
+            "Ticker slot must be blocked by cross-channel crowding backoff",
+            0,
+            slots.count { it.channel == Channel.LOCK_SCREEN_TICKER },
+        )
+    }
+
+    @Test
+    fun `ticker slot allowed after crowding gap expires`() {
+        val goal = makeGoal(
+            id = 1L,
+            tickerEnabled = true,
+            notificationEnabled = false,
+            wallpaperEnabled = false,
+        )
+
+        // A NOTIFICATION exposure 2 hours ago (> MIN_GAP_MS) no longer crowds.
+        val oldNotificationExposure = RecentExposure(
+            creativeId = "creative_1",
+            subTheme = "morning",
+            channel = Channel.NOTIFICATION,
+            atMs = FIXED_NOW - 2 * 60 * 60 * 1000L,
+        )
+
+        val slots = NudgeScheduler.computeSlots(
+            listOf(goal),
+            FIXED_NOW,
+            makeMockLedger(listOf(oldNotificationExposure)),
+        )
+
+        assertEquals(
+            "Ticker slot should be allowed once the crowding gap expired",
+            1,
+            slots.count { it.channel == Channel.LOCK_SCREEN_TICKER },
         )
     }
 }

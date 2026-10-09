@@ -132,4 +132,44 @@ class BudgetPolicyTest {
             BudgetPolicy.isWithinNotificationGap(now, now),
         )
     }
+
+    // ---- LOCK_SCREEN_TICKER cap wiring (M3.3, PHASE3-AGENCY.md §4) ----
+
+    @Test
+    fun `ticker hard max blocks deliveries at cap`() {
+        val now = 1_000_000_000L
+        assertFalse(
+            "At ticker hard max, delivery must be blocked",
+            BudgetPolicy.canDeliver(
+                channel = Channel.LOCK_SCREEN_TICKER,
+                sentTodayOnChannel = BudgetPolicy.TICKER_HARD_MAX_PER_DAY,
+                dismissedRecently = emptyList(),
+                nowMs = now,
+            ),
+        )
+        assertTrue(
+            "Below ticker hard max, delivery must be allowed",
+            BudgetPolicy.canDeliver(
+                channel = Channel.LOCK_SCREEN_TICKER,
+                sentTodayOnChannel = BudgetPolicy.TICKER_HARD_MAX_PER_DAY - 1,
+                dismissedRecently = emptyList(),
+                nowMs = now,
+            ),
+        )
+    }
+
+    @Test
+    fun `ticker override can only lower the cap, never raise`() {
+        val now = 1_000_000_000L
+        assertFalse(
+            "Attempt to raise the ticker cap to 10 via override must be clamped",
+            BudgetPolicy.canDeliver(
+                channel = Channel.LOCK_SCREEN_TICKER,
+                sentTodayOnChannel = BudgetPolicy.TICKER_HARD_MAX_PER_DAY,
+                dismissedRecently = emptyList(),
+                nowMs = now,
+                hardMaxOverride = 10, // malicious/high value must be clamped
+            ),
+        )
+    }
 }

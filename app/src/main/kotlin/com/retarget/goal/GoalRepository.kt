@@ -23,6 +23,7 @@ class GoalRepository(
     suspend fun installPreset(
         presetId: String,
         nowMs: Long,
+        tickerEnabled: Boolean = false,
     ): Long {
         val preset =
             PresetCatalog.byId(presetId)
@@ -31,12 +32,16 @@ class GoalRepository(
             if (!existing.active) dao.setActive(existing.id, true)
             return existing.id
         }
+        // tickerEnabled comes from the onboarding opt-in prompt (decision #4:
+        // off by default, opt-in only). A reactivated goal keeps its saved
+        // settings untouched.
+        val settings = CampaignSettings.fromPreset(preset).copy(tickerEnabled = tickerEnabled)
         return dao.insert(
             GoalEntity(
                 presetId = preset.id,
                 displayName = preset.displayName,
                 createdAt = nowMs,
-                settingsJson = GoalConverters().settingsToJson(CampaignSettings.fromPreset(preset)),
+                settingsJson = GoalConverters().settingsToJson(settings),
             ),
         )
     }

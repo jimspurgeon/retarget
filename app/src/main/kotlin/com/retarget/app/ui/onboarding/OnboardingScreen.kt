@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -90,9 +91,52 @@ fun OnboardingScreen(
                     onClick = { viewModel.activate(preset.id) },
                 )
             }
+            item {
+                TickerOptInCard(
+                    checked = state.tickerOptIn,
+                    onCheckedChange = viewModel::setTickerOptIn,
+                )
+            }
         }
         TextButton(onClick = viewModel::skip, modifier = Modifier.align(Alignment.End)) {
             Text(stringResource(R.string.onboarding_skip))
+        }
+    }
+}
+
+/**
+ * Lock-screen ticker opt-in (PHASE3-AGENCY.md §8 decision #4).
+ *
+ * Discovery prompt, placed with preset selection. Strictly opt-in: the
+ * switch starts unchecked and nothing is enabled until the user acts
+ * (AGENTS.md §2 — no pre-checked boxes). Plain language explains what it
+ * does and that it is changeable anytime.
+ */
+@Composable
+private fun TickerOptInCard(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.onboarding_ticker_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = stringResource(R.string.onboarding_ticker_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Checkbox(checked = checked, onCheckedChange = onCheckedChange)
         }
     }
 }

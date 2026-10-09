@@ -47,6 +47,7 @@ class NotificationDeliveryWorker(
     private val ledger = RoomExposureLedger(db.exposureDao())
     private val rotator = CreativeRotator()
     private val notificationChannel = NotificationChannel(applicationContext)
+    private val tickerChannel = TickerChannel(applicationContext)
     private val packSource = BundledPackSource(applicationContext)
 
     override suspend fun doWork(): Result =
@@ -55,16 +56,32 @@ class NotificationDeliveryWorker(
 
             // Check quiet hours first
             val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-            if (!com.retarget.scheduler.WallpaperRotationPolicy.shouldRotateNow(hour)) {
+            if (BudgetPolicy.isQuietHour(hour)) {
                 Log.i(TAG, "Quiet hours active (hour=$hour); skipping notification")
+                // The ticker is an ONGOING notification: one delivered before
+                // quiet hours (e.g. 21:00) would otherwise linger on the lock
+                // screen through the night. Cancel showing tickers so the
+                // ticker is truly ABSENT during quiet hours — "visible on lock
+                // screen, absent during quiet hours" (PHASE3-AGENCY.md §4;
+                // reversibility: the off switch must actually turn it off,
+                // AGENTS.md §2). Cheap: one DAO read + manager.cancel calls;
+                // this worker already runs periodically.
+                val cancelableTickerGoals = db.goalDao().observeActive().first()
+                    .filter { it.settings.tickerEnabled }
+                for (goalToCancel in cancelableTickerGoals) {
+                    tickerChannel.cancelForGoal(goalToCancel.id)
+                    Log.i(TAG, "Cancelled ticker for goal ${goalToCancel.id} (quiet hours)")
+                }
                 return@withContext Result.success()
             }
 
-            // Get active goals with notifications enabled, minus any the user has
-            // snoozed (suppression is user-controllable, AGENTS.md §2).
+            // Get active goals with any delivery channel enabled, minus any the user has
+            // snoozed (suppression is user-controllable, AGENTS.md §2). NOTE: ticker-enabled
+            // goals are included here so NudgeScheduler can rank ticker slots against
+            // notification slots; each branch below filters to its own channel.
             val now = System.currentTimeMillis()
             val activeGoals = db.goalDao().observeActive().first()
-                .filter { it.settings.notificationEnabled }
+                .filter { it.settings.notificationEnabled || it.settings.tickerEnabled }
                 .filterNot { SnoozeSuppression.isSnoozed(applicationContext, it.id, now) }
 
             if (activeGoals.isEmpty()) {
@@ -87,6 +104,12 @@ class NotificationDeliveryWorker(
             if (goal == null) {
                 Log.w(TAG, "Goal ${slot.goalId} not found; retrying later")
                 return@withContext Result.retry()
+            }
+
+            // Dispatch by channel: the lock-screen ticker is a text-only glance
+            // surface with its own delivery path (M3.3, PHASE3-AGENCY.md §4).
+            if (slot.channel == Channel.LOCK_SCREEN_TICKER) {
+                return@withContext deliverTicker(goal, now)
             }
 
             // Intra-day spacing: the ledger is channel-wide today (see the
@@ -210,9 +233,72 @@ class NotificationDeliveryWorker(
             Result.success()
         }
 
+    /**
+     * Delivers the lock-screen ticker slot (M3.3, PHASE3-AGENCY.md §4).
+     *
+     * The ticker is a text-only ongoing notification with a stable per-goal id,
+     * so each delivery replaces the previous one instead of stacking. Exposure
+     * is recorded to the ledger with Channel.LOCK_SCREEN_TICKER so the daily
+     * cap and quiet-hour gates see it.
+     */
+    private suspend fun deliverTicker(
+        goal: com.retarget.goal.GoalEntity,
+        now: Long,
+    ): Result {
+        val startOfDayMs = java.time.Instant.ofEpochMilli(now)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+            .atStartOfDay(java.time.ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+
+        // Gentle pacing line: total nudges across channels today. Neutral,
+        // factual framing only — no fear/shame language (decision #5).
+        val nudgesToday = Channel.entries.sumOf {
+            ledger.exposuresTodayByChannel(it, startOfDayMs)
+        }
+        val title = PresetCatalog.byId(goal.presetId)?.displayName ?: goal.displayName
+        val pacingLine = "$title · ${nudgesToday + 1} nudges today"
+
+        // Tap-through check-in mirrors the notification channel's primary action;
+        // the ticker deliberately has no other actions (glance surface, not prompt).
+        val tapIntent = PendingIntent.getBroadcast(
+            applicationContext,
+            goal.id.hashCode(),
+            android.content.Intent(applicationContext, com.retarget.broadcast.CheckInReceiver::class.java).apply {
+                action = com.retarget.broadcast.CheckInReceiver.ACTION_CHECK_IN
+                putExtra(com.retarget.broadcast.CheckInReceiver.EXTRA_GOAL_ID, goal.id)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val spec = TickerSpec(
+            goalId = goal.id,
+            title = title,
+            pacingLine = pacingLine,
+            tapIntent = tapIntent,
+        )
+
+        // Stable id per goal: one ticker replaces the previous.
+        val notificationId = (TICKER_NOTIFICATION_ID_BASE + goal.id).toInt()
+        val delivered = tickerChannel.deliver(spec, notificationId)
+
+        return if (delivered) {
+            ledger.recordExposure("${goal.id}:ticker", "ticker", Channel.LOCK_SCREEN_TICKER, now)
+            Log.i(TAG, "Ticker delivered: goal=${goal.id}")
+            Result.success()
+        } else {
+            Log.w(TAG, "Ticker delivery failed for goal ${goal.id}; retrying later")
+            Result.retry()
+        }
+    }
+
     companion object {
         private const val TAG = "NotificationDeliveryWorker"
         private const val COPY_STATE_PREFS = "nudge_copy_state"
+
+        /** Stable notification-id base for the per-goal lock-screen ticker. */
+        internal const val TICKER_NOTIFICATION_ID_BASE = 1000L
 
         /** SharedPreferences key holding the last delivered line for [theme]. */
         internal fun lastLineKey(theme: com.retarget.creative.GoalTheme): String =

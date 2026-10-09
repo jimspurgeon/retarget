@@ -35,6 +35,14 @@ export payload. Import/restore is deferred to v0.4.1.
 - Settings: "Export my data" action — saves goals, campaign settings, exposure
   history and check-ins as a JSON file via the system file picker. Runs entirely
   on-device; nothing is sent anywhere.
+- **Lock-screen ticker channel (M3.3):** a new opt-in channel — a silent,
+  low-priority notification showing a goal ticker on the lock screen (no heads-up,
+  no sound, no vibration). Off by default (pre-registered decision #4 in
+  docs/plans/PHASE3-AGENCY.md §8); capped at 2 per day, never shown during quiet
+  hours, and coordinated with other channels through the scheduler's crowding
+  backoff so total interruption stays bounded. Design basis: docs/research/android-platform.md
+  §6 (lock-screen & always-on ambient surfaces as glanceable, non-alerting
+  "goal ticker" notifications).
 
 ## [v0.3.3] - 2026-10-06
 
