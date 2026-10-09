@@ -90,7 +90,12 @@ class NotificationDeliveryWorker(
             }
 
             // Compute slots using NudgeScheduler
-            val slots = NudgeScheduler.computeSlots(activeGoals, now, ledger)
+            val slots = NudgeScheduler.computeSlots(
+                activeGoals,
+                now,
+                ledger,
+                learningDao = db.learningStateDao(),
+            )
 
             if (slots.isEmpty()) {
                 Log.i(TAG, "No slots computed for active goals")
@@ -139,8 +144,19 @@ class NotificationDeliveryWorker(
                 return@withContext Result.retry()
             }
 
-            // Score and select creative (may differ from slot's creative due to fatigue)
-            val selected = rotator.selectNext(candidates, ledger, now)
+            // Score and select creative (may differ from slot's creative due to fatigue).
+            // M3.4: learned subTheme bonuses participate when this goal has
+            // enough observations (floor-gated; neutral before).
+            val bucket = com.retarget.learning.EpsilonGreedyBandit.bucketOf(
+                now,
+                java.time.ZoneId.systemDefault(),
+            )
+            val learningContext = com.retarget.creative.CreativeRotator.LearningContext(
+                goalId = goal.id,
+                bucket = bucket,
+                statesForBucket = db.learningStateDao().getByGoalAndBucket(goal.id, bucket),
+            )
+            val selected = rotator.selectNext(candidates, ledger, now, learningContext = learningContext)
                 ?: run {
                     Log.i(TAG, "Rotator returned no selection")
                     return@withContext Result.success()
@@ -221,6 +237,7 @@ class NotificationDeliveryWorker(
                 listOf(goal),
                 now,
                 ledger,
+                learningDao = db.learningStateDao(),
             ).firstOrNull { it.goalId == goal.id && it.channel == Channel.NOTIFICATION }
 
             if (nextSlot != null) {
