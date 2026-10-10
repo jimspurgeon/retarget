@@ -35,10 +35,12 @@ data class ExportPayload(
     val goals: List<ExportedGoal> = emptyList(),
     val exposureEvents: List<ExportedExposure> = emptyList(),
     val checkIns: List<ExportedCheckIn> = emptyList(),
+    /** M3.4: learned scheduling/creative-preference cells, newest feature block. */
+    val learningState: List<ExportedLearningCell> = emptyList(),
 ) {
     companion object {
         /** The only schema version emitted by this build; see [ExportSerializer]. */
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2
 
         /**
          * Assemble a payload from raw Room rows (pure mapping, no I/O —
@@ -48,12 +50,46 @@ data class ExportPayload(
             goals: List<GoalEntity>,
             exposureEvents: List<ExposureEntity>,
             checkIns: List<CheckInEntity>,
+            learningCells: List<com.retarget.learning.LearningStateEntity> = emptyList(),
         ): ExportPayload =
             ExportPayload(
                 schemaVersion = SCHEMA_VERSION,
                 goals = goals.map { ExportedGoal.from(it) },
                 exposureEvents = exposureEvents.map { ExportedExposure.from(it) },
                 checkIns = checkIns.map { ExportedCheckIn.from(it, goals) },
+                learningState = learningCells.map { ExportedLearningCell.from(it, goals) },
+            )
+    }
+}
+
+/**
+ * One M3.4 learning cell: what the app has learned about (time bucket,
+ * sub-theme) response for a goal. Exported so the user can inspect exactly
+ * what adaptation is based on (AGENTS.md §2 transparency) — nothing more,
+ * nothing less.
+ */
+@Serializable
+data class ExportedLearningCell(
+    val goalPresetId: String,
+    /** 0-5: which 4-hour slice of the day this cell describes. */
+    val bucket: Int,
+    val subTheme: String,
+    val attempts: Int,
+    val scoreSum: Double,
+    val scoreCount: Int,
+) {
+    companion object {
+        fun from(
+            cell: com.retarget.learning.LearningStateEntity,
+            goals: List<GoalEntity>,
+        ): ExportedLearningCell =
+            ExportedLearningCell(
+                goalPresetId = goals.firstOrNull { it.id == cell.goalId }?.presetId ?: ExportedCheckIn.UNKNOWN_GOAL,
+                bucket = cell.bucket,
+                subTheme = cell.subTheme,
+                attempts = cell.attempts,
+                scoreSum = cell.scoreSum,
+                scoreCount = cell.scoreCount,
             )
     }
 }

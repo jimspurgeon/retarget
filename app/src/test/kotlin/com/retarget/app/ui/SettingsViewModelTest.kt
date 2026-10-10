@@ -56,7 +56,11 @@ class SettingsViewModelTest {
                 .allowMainThreadQueries()
                 .build()
         repo = com.retarget.goal.GoalRepository(db.goalDao())
-        viewModel = SettingsViewModel(repo)
+        viewModel =
+            SettingsViewModel(
+                repo,
+                com.retarget.learning.LearningExporter(db.learningStateDao()),
+            )
 
         runBlocking {
             db.goalDao().insert(

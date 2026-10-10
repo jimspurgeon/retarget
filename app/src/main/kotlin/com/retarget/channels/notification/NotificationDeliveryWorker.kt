@@ -90,7 +90,12 @@ class NotificationDeliveryWorker(
             }
 
             // Compute slots using NudgeScheduler
-            val slots = NudgeScheduler.computeSlots(activeGoals, now, ledger)
+            val slots = NudgeScheduler.computeSlots(
+                activeGoals,
+                now,
+                ledger,
+                learningDao = db.learningStateDao(),
+            )
 
             if (slots.isEmpty()) {
                 Log.i(TAG, "No slots computed for active goals")
@@ -139,8 +144,19 @@ class NotificationDeliveryWorker(
                 return@withContext Result.retry()
             }
 
-            // Score and select creative (may differ from slot's creative due to fatigue)
-            val selected = rotator.selectNext(candidates, ledger, now)
+            // Score and select creative (may differ from slot's creative due to fatigue).
+            // M3.4: learned subTheme bonuses participate when this goal has
+            // enough observations (floor-gated; neutral before).
+            val bucket = com.retarget.learning.EpsilonGreedyBandit.bucketOf(
+                now,
+                java.time.ZoneId.systemDefault(),
+            )
+            val learningContext = com.retarget.creative.CreativeRotator.LearningContext(
+                goalId = goal.id,
+                bucket = bucket,
+                statesForBucket = db.learningStateDao().getByGoalAndBucket(goal.id, bucket),
+            )
+            val selected = rotator.selectNext(candidates, ledger, now, learningContext = learningContext)
                 ?: run {
                     Log.i(TAG, "Rotator returned no selection")
                     return@withContext Result.success()
@@ -212,6 +228,13 @@ class NotificationDeliveryWorker(
             // Record exposure, then persist the delivered copy line so the next
             // nudge for this theme avoids repeating it.
             ledger.recordExposure(selected.id, selected.subTheme, Channel.NOTIFICATION, now)
+            // M3.4 bandit: an exposure = one observation for the (bucket, subTheme)
+            // cell — increments attempts, enabling the MIN_OBSERVATIONS floor gate
+            // that unlocks learned weights. See EpsilonGreedyBandit.incrementObservation.
+            val obsBucket = com.retarget.learning.EpsilonGreedyBandit.bucketOf(now, java.time.ZoneId.systemDefault())
+            db.learningStateDao().upsert(
+                com.retarget.learning.EpsilonGreedyBandit.incrementObservation(db.learningStateDao().get(goal.id, obsBucket, selected.subTheme) ?: com.retarget.learning.LearningStateEntity(goalId = goal.id, bucket = obsBucket, subTheme = selected.subTheme)),
+            )
             copyPrefs.edit().putString(lastLineKey(theme), selectedLine).apply()
             Log.i(TAG, "Notification delivered: goal=${goal.id}, creative=${selected.id}")
 
@@ -221,6 +244,7 @@ class NotificationDeliveryWorker(
                 listOf(goal),
                 now,
                 ledger,
+                learningDao = db.learningStateDao(),
             ).firstOrNull { it.goalId == goal.id && it.channel == Channel.NOTIFICATION }
 
             if (nextSlot != null) {

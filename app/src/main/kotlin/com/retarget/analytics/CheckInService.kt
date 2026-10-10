@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.retarget.goal.GoalDatabase
+import com.retarget.learning.RewardRecorder
 
 /**
  * Service for recording check-in events from notification actions.
@@ -34,13 +35,18 @@ class CheckInService : IntentService("CheckInService") {
         val checkInDao = db.checkInDao()
 
         try {
+            val nowMs = System.currentTimeMillis()
             checkInDao.insert(
                 CheckInEntity(
                     goalId = goalId,
-                    atMs = System.currentTimeMillis(),
+                    atMs = nowMs,
                     notes = notes,
                 ),
             )
+            // M3.4: bind the check-in to the bandit (+1.0 to the goal's most
+            // recent ≤2h-old exposure's (bucket, subTheme), if any).
+            RewardRecorder(db.learningStateDao(), db.exposureDao())
+                .recordCheckIn(goalId, nowMs)
             Log.i(TAG, "Check-in recorded: goalId=$goalId")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to record check-in for goalId=$goalId", e)

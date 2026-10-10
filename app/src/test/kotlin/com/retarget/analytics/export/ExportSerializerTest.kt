@@ -131,11 +131,11 @@ class ExportSerializerTest {
     }
 
     @Test
-    fun `output json declares schema version 1`() {
+    fun `output json declares the current schema version`() {
         val element = Json.parseToJsonElement(ExportSerializer.serialize(syntheticPayload()))
 
-        assertEquals(1, element.jsonObject["schemaVersion"]!!.jsonPrimitive.content.toInt())
-        assertEquals(ExportSerializer.CURRENT_SCHEMA_VERSION, 1)
+        assertEquals(ExportPayload.SCHEMA_VERSION, element.jsonObject["schemaVersion"]!!.jsonPrimitive.content.toInt())
+        assertEquals(ExportSerializer.CURRENT_SCHEMA_VERSION, ExportPayload.SCHEMA_VERSION)
     }
 
     @Test
@@ -186,7 +186,7 @@ class ExportSerializerTest {
 
         val element = Json.parseToJsonElement(ExportSerializer.serialize(payload)).jsonObject
 
-        assertEquals(1, element["schemaVersion"]!!.jsonPrimitive.content.toInt())
+        assertEquals(ExportPayload.SCHEMA_VERSION, element["schemaVersion"]!!.jsonPrimitive.content.toInt())
         assertEquals(0, element["goals"]!!.jsonArray.size)
         assertEquals(0, element["exposureEvents"]!!.jsonArray.size)
         assertEquals(0, element["checkIns"]!!.jsonArray.size)

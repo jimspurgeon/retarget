@@ -43,6 +43,19 @@ export payload. Import/restore is deferred to v0.4.1.
   backoff so total interruption stays bounded. Design basis: docs/research/android-platform.md
   §6 (lock-screen & always-on ambient surfaces as glanceable, non-alerting
   "goal ticker" notifications).
+- **On-device self-optimization (M3.4, bandit-lite):** the app now learns which
+  times of day and which creative sub-themes work best for you, and gently steers
+  future nudges toward them. Check-ins credit the nudge that preceded them
+  (+1.0); "Fewer like this" (−1.0) and snooze (−0.25) credit against it.
+  Learning stays on your device, only starts after ~10 delivered nudges per
+  time bucket, adapts slowly (weights clamped), and can adjust only the *order*
+  of already-approved nudges — daily caps and quiet hours are enforced in code
+  and can never be raised by learning (pre-registered decisions #3/#6).
+  Notifications' "Check in" action now records a real check-in (previously a
+  no-op stub). Controls in Settings: "Reset learning" clears all learned data
+  after a confirmation dialog; the transparency screen explains what adapts;
+  "Export my data" now includes learned-state cells (export schema v2 —
+  older export files still import).
 
 ## [v0.3.3] - 2026-10-06
 

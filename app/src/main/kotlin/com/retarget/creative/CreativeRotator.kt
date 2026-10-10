@@ -38,11 +38,12 @@ class CreativeRotator {
         exposureLedger: ExposureLedger,
         nowMs: Long,
         random: kotlin.random.Random = kotlin.random.Random.Default,
+        learningContext: LearningContext? = null,
     ): Creative? {
         if (candidates.isEmpty()) return null
         if (candidates.size == 1) return candidates.single()
 
-        val scored = candidates.map { it to score(it, exposureLedger, nowMs) }
+        val scored = candidates.map { it to score(it, exposureLedger, nowMs, learningContext) }
         // Weighted random among top-K to keep variety without picking stale creatives.
         val topK = scored.sortedByDescending { it.second }.take(TOP_K)
         return topK[random.nextInt(topK.size)].first
@@ -83,6 +84,7 @@ class CreativeRotator {
         creative: Creative,
         ledger: ExposureLedger,
         nowMs: Long,
+        learningContext: LearningContext? = null,
     ): Double {
         val lastShown = ledger.lastShownAt(creative.id)
         val timesShown = ledger.timesShown(creative.id)
@@ -104,7 +106,28 @@ class CreativeRotator {
         // Sub-theme diversity: penalizes overrepresented sub-themes (Option A).
         val diversityFactor = computeDiversityFactor(creative, ledger)
 
-        return creative.baseAppeal * restRecovery * wearPenalty * diversityFactor
+        // M3.4 bandit: additive subTheme bonus from learning state — zero
+        // before the observation floor, bounded so it reorders subThemes
+        // without dominating base appeal.
+        val subThemeBonus = learningContext?.bonusFor(creative.subTheme) ?: 0.0
+
+        return creative.baseAppeal * restRecovery * wearPenalty * diversityFactor + subThemeBonus
+    }
+
+    /**
+     * Learning-state inputs for creative scoring (M3.4). Callers supply this
+     * when they know the goal and time bucket; null (default) keeps scoring
+     * identical to pre-M3.4 behavior.
+     */
+    data class LearningContext(
+        val goalId: Long,
+        val bucket: Int,
+        val statesForBucket: List<com.retarget.learning.LearningStateEntity>,
+    ) {
+        fun bonusFor(subTheme: String): Double {
+            val state = statesForBucket.firstOrNull { it.subTheme == subTheme }
+            return com.retarget.learning.EpsilonGreedyBandit.subThemeBonus(state, statesForBucket)
+        }
     }
 
     companion object {

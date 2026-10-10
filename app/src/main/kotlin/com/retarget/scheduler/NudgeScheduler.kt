@@ -50,12 +50,28 @@ object NudgeScheduler {
         nowMs: Long,
         ledger: ExposureLedger,
         random: kotlin.random.Random = kotlin.random.Random.Default,
+        learningDao: com.retarget.learning.LearningStateDao? = null,
     ): List<Slot> {
         val slots = mutableListOf<Slot>()
 
         for (goal in activeGoals) {
             val settings = goal.settings
             val goalId = goal.id
+
+            // M3.4 bandit: learned timing weight for (goalId, bucket of now).
+            // Neutral (1.0) until the observation floor is reached, clamped to
+            // [WEIGHT_MIN, WEIGHT_MAX] thereafter — reorders already-gate-
+            // approved slots, never violates caps/quiet hours (those gates run
+            // before and after this weight, unchanged).
+            val timingWeight = learningDao?.let { dao ->
+                val bucket = com.retarget.learning.EpsilonGreedyBandit.bucketOf(
+                    nowMs, ZoneId.systemDefault(),
+                )
+                com.retarget.learning.EpsilonGreedyBandit.timingWeight(
+                    dao.getByGoalAndBucket(goalId, bucket),
+                    bucket,
+                )
+            } ?: 1.0
 
             // Process notification channel
             if (settings.notificationEnabled) {
@@ -80,7 +96,9 @@ object NudgeScheduler {
                     // Check crowding backoff before adding slot
                     if (passesCrowdingBackoff(goalId, Channel.NOTIFICATION, nowMs, ledger)) {
                         val basePriority = computeBasePriority(goal, nowMs, random)
-                        val boostedPriority = applyFreshStartBoost(basePriority, nowMs)
+                        // Bandit timing weight is applied after the fresh-start boost so it
+                        // modulates, never replaces, existing priority semantics.
+                        val boostedPriority = applyFreshStartBoost(basePriority, nowMs) * timingWeight
                         slots.add(
                             Slot(
                                 goalId = goalId,
@@ -100,7 +118,9 @@ object NudgeScheduler {
                 if (WallpaperRotationPolicy.shouldRotateNow(hourOfDay)) {
                     if (passesCrowdingBackoff(goalId, Channel.WALLPAPER, nowMs, ledger)) {
                         val basePriority = computeBasePriority(goal, nowMs, random)
-                        val boostedPriority = applyFreshStartBoost(basePriority, nowMs)
+                        // Bandit timing weight is applied after the fresh-start boost so it
+                        // modulates, never replaces, existing priority semantics.
+                        val boostedPriority = applyFreshStartBoost(basePriority, nowMs) * timingWeight
                         slots.add(
                             Slot(
                                 goalId = goalId,
@@ -134,7 +154,9 @@ object NudgeScheduler {
                     )) {
                     if (passesCrowdingBackoff(goalId, Channel.LOCK_SCREEN_TICKER, nowMs, ledger)) {
                         val basePriority = computeBasePriority(goal, nowMs, random)
-                        val boostedPriority = applyFreshStartBoost(basePriority, nowMs)
+                        // Bandit timing weight is applied after the fresh-start boost so it
+                        // modulates, never replaces, existing priority semantics.
+                        val boostedPriority = applyFreshStartBoost(basePriority, nowMs) * timingWeight
                         slots.add(
                             Slot(
                                 goalId = goalId,

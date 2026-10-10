@@ -38,3 +38,38 @@ takes effect immediately — no residual notifications, nothing to clean up.
 (lock-screen & always-on ambient surfaces). Ethical guardrails per
 [AGENTS.md](../AGENTS.md) §2: user-initiated, reversible, off by default, and
 explainable in plain language.
+
+---
+
+## Adaptive scheduling and creative mix (M3.4)
+
+**What it is:** the app learns from your responses which times of day and
+which creative themes work better *for you*, and gently shifts future
+nudges toward what works. This is the same kind of optimization advertisers
+use — pointed at your own goal, on your device only.
+
+**What adapts:**
+
+- **Timing.** Times of day where you check in more get slightly higher
+  scheduling priority (within a fixed, gentle range: at most ±50%).
+- **Creative mix.** Themes you respond well to appear a bit more often;
+  themes you tap "Fewer like this" on appear less often.
+
+**What never adapts:**
+
+- **Daily caps.** Hard limits per channel (e.g., ticker: 2/day) are
+  immutable — learning reorders nudges, never adds more.
+- **Quiet hours.** 22:00–07:00 by default; no learning can deliver there.
+- **Your goal data.** All learning stays on this device, is included in
+  "Export my data", and can be wiped with "Reset learning" in Settings.
+
+**How it learns:** only from your own actions — check-ins (strong
+positive), "Fewer like this" taps (strong negative), and snoozes (mild
+negative). Nothing else is measured; nothing leaves the device. Selection
+among near-tied options keeps some variety (the rotator's randomization),
+but learning itself is deterministic — no random exploration is applied.
+
+**How to turn it off:** Settings → "Reset learning" clears everything
+learned so far. Learning is conservative by design: it only kicks in after
+roughly 10 observations for a given time-of-day slot, and starts from a
+neutral prior, so early noise can't send it off the rails.

@@ -10,11 +10,14 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Handler
+import android.util.Log
 import android.os.Looper
 import android.widget.Toast
 import com.retarget.app.R
 import com.retarget.goal.GoalConverters
 import com.retarget.goal.GoalDatabase
+import com.retarget.learning.EpsilonGreedyBandit
+import com.retarget.learning.RewardRecorder
 import com.retarget.scheduler.NotificationScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +44,24 @@ class FewerNotificationsReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             val db = GoalDatabase.get(context)
             val dao = db.goalDao()
+
+            // M3.4 bandit: "fewer like this" is also a strong negative reward
+            // (−1.0) credited to the (bucket, subTheme) of this creative's most
+            // recent exposure, steering future creative selection away from
+            // rejected themes. Runs alongside the M2.6 volume reduction — same
+            // tap, two effects the user was already told about.
+            val creativeId = intent.getStringExtra("CREATIVE_ID")
+            if (creativeId != null) {
+                // Isolated: a failure in the learning path must never abort the
+                // M2.6 volume reduction this tap primarily promises
+                // (gatekeeper minor 4; mirrors SnoozeReceiver's pattern).
+                try {
+                    RewardRecorder(db.learningStateDao(), db.exposureDao())
+                        .recordFewerLikeThis(goalId, creativeId, System.currentTimeMillis())
+                } catch (e: Exception) {
+                    Log.w(TAG, "Bandit reward recording failed for goalId=$goalId", e)
+                }
+            }
 
             val goal = dao.getById(goalId) ?: return@launch
 
@@ -71,6 +92,7 @@ class FewerNotificationsReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        private const val TAG = "FewerNotifs"
         const val ACTION_FEWER_NOTIFICATIONS = "com.retarget.action.FEWER_NOTIFICATIONS"
         const val EXTRA_GOAL_ID = "goal_id"
     }

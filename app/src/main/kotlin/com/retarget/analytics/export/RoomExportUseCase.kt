@@ -12,6 +12,7 @@ import com.retarget.creative.ExposureDao
 import com.retarget.creative.ExposureEntity
 import com.retarget.goal.GoalDao
 import com.retarget.goal.GoalEntity
+import com.retarget.learning.LearningStateDao
 
 /**
  * Room-backed [ExportUseCase]: fetches every user-authored row (goals,
@@ -29,11 +30,13 @@ class RoomExportUseCase(
     private val goalDao: GoalDao,
     private val exposureDao: ExposureDao,
     private val checkInDao: CheckInDao,
+    private val learningDao: LearningStateDao? = null,
 ) : ExportUseCase {
     override suspend fun buildExport(): String {
         val goals: List<GoalEntity> = goalDao.getAllGoalsForExport()
         val exposures: List<ExposureEntity> = exposureDao.getAllExposuresForExport()
         val checkIns: List<CheckInEntity> = checkInDao.getAllCheckInsForExport()
-        return ExportSerializer.serialize(ExportPayload.fromRows(goals, exposures, checkIns))
+        val learningCells = learningDao?.getAllForExport() ?: emptyList()
+        return ExportSerializer.serialize(ExportPayload.fromRows(goals, exposures, checkIns, learningCells))
     }
 }

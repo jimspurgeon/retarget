@@ -21,11 +21,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -48,6 +53,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -60,6 +66,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    var showResetLearningDialog by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
     val exportViewModel: ExportViewModel = hiltViewModel()
     val isExporting by exportViewModel.isExporting.collectAsState()
@@ -85,6 +92,27 @@ fun SettingsScreen(
                 },
             )
         }
+
+    if (showResetLearningDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetLearningDialog = false },
+            title = { Text(stringResource(R.string.settings_reset_learning_confirm)) },
+            text = { Text(stringResource(R.string.settings_reset_learning_subtitle)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showResetLearningDialog = false
+                        viewModel.resetLearning(context)
+                    },
+                ) { Text(stringResource(R.string.settings_reset_learning_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetLearningDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
 
     Column(
         modifier =
@@ -117,6 +145,10 @@ fun SettingsScreen(
                     enabled = !isExporting,
                     onClick = { createExportFileLauncher.launch(buildSuggestedExportFileName()) },
                 )
+            }
+
+            item {
+                ResetLearningCard(onClick = { showResetLearningDialog = true })
             }
 
             items(uiState.channelSettings, key = { it.channelName }) { channel ->
@@ -245,6 +277,28 @@ private fun ExportDataCard(
     }
 }
 
+@Composable
+private fun ResetLearningCard(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.settings_reset_learning_action),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.settings_reset_learning_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
 data class ChannelSetting(
     val channelName: String,
     val enabled: Boolean,
@@ -264,6 +318,7 @@ class SettingsViewModel
     @Inject
     constructor(
         private val repo: GoalRepository,
+        private val learningExporter: com.retarget.learning.LearningExporter,
     ) : ViewModel() {
 
         val uiState =
@@ -325,6 +380,26 @@ class SettingsViewModel
                         newEnabled = newEnabled,
                         goalId = goal.id,
                     )
+                }
+            }
+        }
+
+        /**
+         * M3.4: wipes ALL learning state (one-tap; per-goal reset arrives with
+         * goal-scoped UI later). Toast confirms on completion.
+         */
+        fun resetLearning(context: Context) {
+            viewModelScope.launch {
+                val cleared = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    learningExporter.wipeAllLearning()
+                }
+                android.os.Handler(context.mainLooper).post {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.settings_reset_learning_done) +
+                            " ($cleared)",
+                        Toast.LENGTH_SHORT,
+                    ).show()
                 }
             }
         }
