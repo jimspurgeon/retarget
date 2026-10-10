@@ -46,6 +46,10 @@
     <string name="transparency_budget_status">%1$d/%2$d notifications today</string>
     <string name="transparency_budget_used">%1$d of %2$d used</string>
     <string name="transparency_budget_exhausted">Limit reached</string>
+    <!-- M3.4 adaptive scheduling transparency -->
+    <string name="transparency_learning_label">Does this app learn from me?</string>
+    <string name="transparency_learning_body">Yes — but only from your own actions, only on this device. Your check-ins, \"Fewer like this\" taps, and snoozes gradually shift which times of day and which themes get nudged, so nudges land when they work best for you.</string>
+    <string name="transparency_learning_immutable">Daily caps and quiet hours never adapt. Export or reset everything learned in Settings.</string>
     <string name="transparency_budget_warning">Approaching limit</string>
     <string name="transparency_budget_ok">Plenty remaining</string>
     <string name="transparency_settings_link">Adjust in Settings</string>
@@ -87,4 +91,9 @@
     <string name="settings_export_subtitle">Save a copy of your goals, settings, exposure history and check-ins as a JSON file on your device. Nothing is sent anywhere.</string>
     <string name="settings_export_success">Export saved</string>
     <string name="settings_export_failed">Couldn\'t save the export. Please try again.</string>
+    <!-- M3.4: reset learning (bandit adaptation) -->
+    <string name="settings_reset_learning_action">Reset learning</string>
+    <string name="settings_reset_learning_subtitle">Clear all learned scheduling and creative-preference data. The app will relearn from future behavior.</string>
+    <string name="settings_reset_learning_confirm">Clear learned data?</string>
+    <string name="settings_reset_learning_done">Learning reset</string>
 </resources>

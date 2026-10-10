@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
@@ -117,6 +118,10 @@ fun SettingsScreen(
                     enabled = !isExporting,
                     onClick = { createExportFileLauncher.launch(buildSuggestedExportFileName()) },
                 )
+            }
+
+            item {
+                ResetLearningCard(onClick = { viewModel.resetLearning(context) })
             }
 
             items(uiState.channelSettings, key = { it.channelName }) { channel ->
@@ -245,6 +250,28 @@ private fun ExportDataCard(
     }
 }
 
+@Composable
+private fun ResetLearningCard(onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.settings_reset_learning_action),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.settings_reset_learning_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
 data class ChannelSetting(
     val channelName: String,
     val enabled: Boolean,
@@ -264,6 +291,7 @@ class SettingsViewModel
     @Inject
     constructor(
         private val repo: GoalRepository,
+        private val learningExporter: com.retarget.learning.LearningExporter,
     ) : ViewModel() {
 
         val uiState =
@@ -325,6 +353,26 @@ class SettingsViewModel
                         newEnabled = newEnabled,
                         goalId = goal.id,
                     )
+                }
+            }
+        }
+
+        /**
+         * M3.4: wipes ALL learning state (one-tap; per-goal reset arrives with
+         * goal-scoped UI later). Toast confirms on completion.
+         */
+        fun resetLearning(context: Context) {
+            viewModelScope.launch {
+                val cleared = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    learningExporter.wipeAllLearning()
+                }
+                android.os.Handler(context.mainLooper).post {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.settings_reset_learning_done) +
+                            " ($cleared)",
+                        Toast.LENGTH_SHORT,
+                    ).show()
                 }
             }
         }

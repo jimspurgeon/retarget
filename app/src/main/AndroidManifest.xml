@@ -73,18 +73,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- M3.4 Wave 1: "fewer like this" feedback target. Notification
-             action button lands in Wave 2; registering the receiver now
-             keeps Wave 2 UI-only. -->
-        <receiver
-            android:name=".broadcast.FewerLikeThisReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.retarget.action.FEWER_LIKE_THIS" />
-            </intent-filter>
-        </receiver>
-
         <!-- Widget configuration screen (M3.2, gatekeeper M2 fix): goal picker
              launched by the system when the widget is added (see
              retarget_widget_info.xml android:configure). Exported because the

@@ -80,6 +80,11 @@ object AppModule {
     fun provideLearningStateDao(db: com.retarget.goal.GoalDatabase): com.retarget.learning.LearningStateDao = db.learningStateDao()
 
     @Provides
+    @javax.inject.Singleton
+    fun provideLearningExporter(dao: com.retarget.learning.LearningStateDao): com.retarget.learning.LearningExporter =
+        com.retarget.learning.LearningExporter(dao)
+
+    @Provides
     fun provideCheckInDao(db: com.retarget.goal.GoalDatabase): com.retarget.analytics.CheckInDao = db.checkInDao()
 
     @Provides
