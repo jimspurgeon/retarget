@@ -6,35 +6,13 @@ All notable changes to this project are documented here. Format loosely follows
 
 ## [Unreleased]
 
-### Fixed — notification scheduling consolidation & anti-spam (v0.3.x hotfix)
-
-- **Single scheduling path:** notification delivery now runs exclusively on the
-  global periodic worker. The legacy per-goal hourly workers
-  (`retarget_notification_<goalId>`) are no longer enqueued; an upgrade sweep
-  cancels any leftovers from previous installs. Previously both systems ran
-  concurrently, producing up to ~36 delivery attempts/day per goal.
-- **Intra-day spacing:** two notifications are now at least 90 minutes apart
-  (channel-wide, pending the goal-scoped ledger). Previously the daily cap
-  alone allowed 2-3 notifications to land within minutes.
-- **Snooze works:** the "Snooze 2h" notification action now records a
-  per-goal snooze-until timestamp that the delivery worker honors. Previously
-  snoozing only re-scheduled a legacy per-goal worker the global worker
-  ignored, so it had no effect.
-
-### Data export & backup — M3.1 underway
-
-First milestone of Phase 3 ("The Agency", see docs/plans/PHASE3-AGENCY.md):
-data portability work has started. Scope per maintainer decision of 2026-10-05
-(§8/1): **export-only for v0.4.0** — a Settings action exporting goals,
-campaign settings, exposure-ledger events, and check-ins as JSON via the
-system file picker, with the "delete everything" purge verified against the
-export payload. Import/restore is deferred to v0.4.1.
+## [v0.4.0] - 2026-10-10 — Phase 3 "The Agency"
 
 ### Added
 
-- Settings: "Export my data" action — saves goals, campaign settings, exposure
-  history and check-ins as a JSON file via the system file picker. Runs entirely
-  on-device; nothing is sent anywhere.
+- **Home-screen widget (M3.2):** a Glance-based widget showing the current
+  nudge creative for a chosen goal, with a check-in button and a per-goal
+  widget preference (goal-picker configure flow).
 - **Lock-screen ticker channel (M3.3):** a new opt-in channel — a silent,
   low-priority notification showing a goal ticker on the lock screen (no heads-up,
   no sound, no vibration). Off by default (pre-registered decision #4 in
@@ -56,6 +34,31 @@ export payload. Import/restore is deferred to v0.4.1.
   after a confirmation dialog; the transparency screen explains what adapts;
   "Export my data" now includes learned-state cells (export schema v2 —
   older export files still import).
+- Settings: "Export my data" action — saves goals, campaign settings, exposure
+  history and check-ins as a JSON file via the system file picker. Runs entirely
+  on-device; nothing is sent anywhere. (M3.1; export-only for v0.4.0 per
+  maintainer decision of 2026-10-05, import/restore deferred to v0.4.1.)
+
+### Fixed
+
+- **Notification scheduling consolidation & anti-spam (v0.3.x hotfix):**
+  - **Single scheduling path:** notification delivery now runs exclusively on
+    the global periodic worker. The legacy per-goal hourly workers
+    (`retarget_notification_<goalId>`) are no longer enqueued; an upgrade sweep
+    cancels any leftovers from previous installs. Previously both systems ran
+    concurrently, producing up to ~36 delivery attempts/day per goal.
+  - **Intra-day spacing:** two notifications are now at least 90 minutes apart
+    (channel-wide, pending the goal-scoped ledger). Previously the daily cap
+    alone allowed 2-3 notifications to land within minutes.
+  - **Snooze works:** the "Snooze 2h" notification action now records a
+    per-goal snooze-until timestamp that the delivery worker honors. Previously
+    snoozing only re-scheduled a legacy per-goal worker the global worker
+    ignored, so it had no effect.
+- **Notification worker retry loop (#33):** goals whose theme had no mapped
+  bundled creative pack (hydration) caused `NotificationDeliveryWorker` to
+  retry indefinitely; wallpaper-intent slots were also routed into the
+  notification path. Both now skip cleanly, and the hydration pack is mapped
+  in both workers.
 
 ## [v0.3.3] - 2026-10-06
 

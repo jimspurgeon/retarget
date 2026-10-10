@@ -18,8 +18,8 @@ android {
         applicationId = "com.retarget.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 6
-        versionName = "0.3.3"
+        versionCode = 7
+        versionName = "0.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -37,6 +37,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Signed with the Android debug key for continuity with the v0.3.x
+            // GitHub-release APKs (same signer certificate enables in-place
+            // upgrades). See DEVELOPMENT.md release policy. Revisit before any
+            // store distribution.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
