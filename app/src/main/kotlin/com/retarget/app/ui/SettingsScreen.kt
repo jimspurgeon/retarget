@@ -21,11 +21,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,6 +66,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
+    var showResetLearningDialog by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
     val exportViewModel: ExportViewModel = hiltViewModel()
     val isExporting by exportViewModel.isExporting.collectAsState()
@@ -86,6 +92,27 @@ fun SettingsScreen(
                 },
             )
         }
+
+    if (showResetLearningDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetLearningDialog = false },
+            title = { Text(stringResource(R.string.settings_reset_learning_confirm)) },
+            text = { Text(stringResource(R.string.settings_reset_learning_subtitle)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showResetLearningDialog = false
+                        viewModel.resetLearning(context)
+                    },
+                ) { Text(stringResource(R.string.settings_reset_learning_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetLearningDialog = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
+    }
 
     Column(
         modifier =
@@ -121,7 +148,7 @@ fun SettingsScreen(
             }
 
             item {
-                ResetLearningCard(onClick = { viewModel.resetLearning(context) })
+                ResetLearningCard(onClick = { showResetLearningDialog = true })
             }
 
             items(uiState.channelSettings, key = { it.channelName }) { channel ->

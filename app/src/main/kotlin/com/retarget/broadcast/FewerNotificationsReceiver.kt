@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Handler
+import android.util.Log
 import android.os.Looper
 import android.widget.Toast
 import com.retarget.app.R
@@ -51,8 +52,15 @@ class FewerNotificationsReceiver : BroadcastReceiver() {
             // tap, two effects the user was already told about.
             val creativeId = intent.getStringExtra("CREATIVE_ID")
             if (creativeId != null) {
-                RewardRecorder(db.learningStateDao(), db.exposureDao())
-                    .recordFewerLikeThis(goalId, creativeId, System.currentTimeMillis())
+                // Isolated: a failure in the learning path must never abort the
+                // M2.6 volume reduction this tap primarily promises
+                // (gatekeeper minor 4; mirrors SnoozeReceiver's pattern).
+                try {
+                    RewardRecorder(db.learningStateDao(), db.exposureDao())
+                        .recordFewerLikeThis(goalId, creativeId, System.currentTimeMillis())
+                } catch (e: Exception) {
+                    Log.w(TAG, "Bandit reward recording failed for goalId=$goalId", e)
+                }
             }
 
             val goal = dao.getById(goalId) ?: return@launch
@@ -84,6 +92,7 @@ class FewerNotificationsReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        private const val TAG = "FewerNotifs"
         const val ACTION_FEWER_NOTIFICATIONS = "com.retarget.action.FEWER_NOTIFICATIONS"
         const val EXTRA_GOAL_ID = "goal_id"
     }

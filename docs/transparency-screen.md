@@ -65,9 +65,9 @@ use — pointed at your own goal, on your device only.
 
 **How it learns:** only from your own actions — check-ins (strong
 positive), "Fewer like this" taps (strong negative), and snoozes (mild
-negative). Nothing else is measured; nothing leaves the device; there is
-no randomness beyond a small amount of exploration that keeps the app
-trying occasionally-missed options.
+negative). Nothing else is measured; nothing leaves the device. Selection
+among near-tied options keeps some variety (the rotator's randomization),
+but learning itself is deterministic — no random exploration is applied.
 
 **How to turn it off:** Settings → "Reset learning" clears everything
 learned so far. Learning is conservative by design: it only kicks in after
