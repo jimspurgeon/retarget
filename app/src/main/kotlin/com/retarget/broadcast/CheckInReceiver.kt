@@ -10,8 +10,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.retarget.analytics.CheckInEntity
 import com.retarget.goal.GoalDatabase
+import com.retarget.learning.CheckInWithReward
 import com.retarget.learning.RewardRecorder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -38,12 +38,10 @@ class CheckInReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val db = GoalDatabase.get(appContext)
-                val nowMs = System.currentTimeMillis()
-                db.checkInDao().insert(
-                    CheckInEntity(goalId = goalId, atMs = nowMs, notes = null),
-                )
-                RewardRecorder(db.learningStateDao(), db.exposureDao())
-                    .recordCheckIn(goalId, nowMs)
+                CheckInWithReward(
+                    db,
+                    RewardRecorder(db.learningStateDao(), db.exposureDao()),
+                ).checkIn(goalId)
                 Log.i(TAG, "Check-in recorded from notification: goalId=$goalId")
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to record check-in for goalId=$goalId", e)
