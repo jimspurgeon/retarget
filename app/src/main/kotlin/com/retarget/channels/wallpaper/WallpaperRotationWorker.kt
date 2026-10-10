@@ -120,6 +120,7 @@ class BundledPackSource(
             "fresh_air" to com.retarget.creative.GoalTheme.NATURE_TIME,
             "fruit" to com.retarget.creative.GoalTheme.PLANT_BASED_WHOLE_FOODS,
             "vegetables" to com.retarget.creative.GoalTheme.PLANT_BASED_WHOLE_FOODS,
+            "hydration" to com.retarget.creative.GoalTheme.HYDRATION,
         )
 
     fun creativesFor(goals: List<com.retarget.goal.GoalEntity>): List<Creative> {

@@ -117,6 +117,15 @@ class NotificationDeliveryWorker(
                 return@withContext deliverTicker(goal, now)
             }
 
+            // Wallpaper slots reaching here are wallpaper-enabled goals competing
+            // in the shared slot ranking; the wallpaper has its own worker
+            // (WallpaperRotationWorker, same 2h cadence). Skip with success so
+            // the worker doesn't retry-loop on a channel it doesn't serve (#33).
+            if (slot.channel == Channel.WALLPAPER) {
+                Log.i(TAG, "Top slot is WALLPAPER for goal ${goal.id}; handled by WallpaperRotationWorker; skipping")
+                return@withContext Result.success()
+            }
+
             // Intra-day spacing: the ledger is channel-wide today (see the
             // goal-scoped-ledger TODO in NudgeScheduler), so this gaps the most
             // recent NOTIFICATION exposure of ANY goal — conservative and
@@ -137,11 +146,13 @@ class NotificationDeliveryWorker(
                 return@withContext Result.success()
             }
 
-            // Get creative candidates for this goal
+            // Get creative candidates for this goal. Empty means the goal's theme
+            // maps to no bundled pack (e.g. a preset without creatives). Skip with
+            // success — retrying would loop with backoff for a permanent condition (#33).
             val candidates = packSource.creativesFor(listOf(goal))
             if (candidates.isEmpty()) {
-                Log.w(TAG, "No creative candidates for goal ${goal.id}; retrying later")
-                return@withContext Result.retry()
+                Log.w(TAG, "No creative candidates for goal ${goal.id} (theme has no bundled pack); skipping")
+                return@withContext Result.success()
             }
 
             // Score and select creative (may differ from slot's creative due to fatigue).
@@ -343,6 +354,7 @@ class BundledPackSource(
             "fresh_air" to com.retarget.creative.GoalTheme.NATURE_TIME,
             "fruit" to com.retarget.creative.GoalTheme.PLANT_BASED_WHOLE_FOODS,
             "vegetables" to com.retarget.creative.GoalTheme.PLANT_BASED_WHOLE_FOODS,
+            "hydration" to com.retarget.creative.GoalTheme.HYDRATION,
         )
 
     fun creativesFor(goals: List<com.retarget.goal.GoalEntity>): List<Creative> {
