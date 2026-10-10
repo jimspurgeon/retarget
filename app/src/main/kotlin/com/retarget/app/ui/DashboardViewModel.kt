@@ -6,6 +6,7 @@
 
 package com.retarget.app.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,6 +15,9 @@ import com.retarget.analytics.CheckInDao
 import com.retarget.creative.Channel
 import com.retarget.creative.RoomExposureLedger
 import com.retarget.goal.GoalDatabase
+import com.retarget.goal.PresetCatalog
+import com.retarget.learning.CheckInWithReward
+import com.retarget.learning.RewardRecorder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -24,11 +28,12 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 /**
- * View model for the Dashboard screen, exposing campaign pacing state.
+ * View model for the Dashboard screen.
  *
- * Displays per-channel exposure counts for today, enabling users to audit
- * how their nudge budget is being spent (e.g., "Notifications: 2/3 today").
- * Also shows check-in rates (check-ins / exposures) per goal.
+ * Exposes per-goal card state (one card per active goal, with today's
+ * check-in count), aggregate channel pacing for today, and an in-app
+ * check-in action that shares the notification/widget code path
+ * (CheckInWithReward: transactional with bandit credit).
  */
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -38,6 +43,45 @@ class DashboardViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val checkInDao: CheckInDao = db.checkInDao()
+
+    private fun startOfDayMs(): Long =
+        LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli()
+
+    /** Per-goal card state: one entry per active goal with today's check-in count. */
+    val perGoalState: Flow<List<GoalCardState>> =
+        db.goalDao()
+            .observeActive()
+            .combine(checkInDao.countsByGoalToday(startOfDayMs())) { goals, counts ->
+                val checkInMap = counts.associateBy({ it.goalId }, { it.cnt })
+                goals.map { goal ->
+                    val preset = PresetCatalog.ALL.firstOrNull { it.id == goal.presetId }
+                    GoalCardState(
+                        id = goal.id,
+                        displayName = goal.displayName,
+                        emoji = preset?.emoji ?: "🎯",
+                        checkInsToday = checkInMap[goal.id] ?: 0,
+                    )
+                }
+            }.flowOn(Dispatchers.IO)
+
+    /**
+     * Records an in-app check-in for [goalId]. Same path as the notification
+     * "Check in" action and the widget button: one transaction writes the
+     * check-in row and (best-effort) the bandit reward. UI updates arrive
+     * reactively via [perGoalState] (Room invalidation).
+     */
+    fun checkIn(goalId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                CheckInWithReward(db, RewardRecorder(db.learningStateDao(), db.exposureDao()))
+                    .checkIn(goalId)
+            } catch (e: Exception) {
+                // Parity with the widget/receiver paths: degrade to a no-op
+                // with a log line rather than crashing the UI.
+                Log.w(TAG, "In-app check-in failed for goalId=$goalId", e)
+            }
+        }
+    }
 
     /** Active goals with their pacing settings. */
     val activeGoals: Flow<List<GoalPacingState>> =
@@ -62,7 +106,7 @@ class DashboardViewModel @Inject constructor(
         db.goalDao()
             .observeActive()
             .map { goals ->
-                val startOfDayMs = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                val startOfDayMs = startOfDayMs()
 
                 val totalWallpaperToday = ledger.exposuresTodayByChannel(Channel.WALLPAPER, startOfDayMs)
                 // Aggregate target is sum across all goals
@@ -80,7 +124,7 @@ class DashboardViewModel @Inject constructor(
         db.goalDao()
             .observeActive()
             .map { goals ->
-                val startOfDayMs = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli()
+                val startOfDayMs = startOfDayMs()
 
                 val totalNotificationToday = ledger.exposuresTodayByChannel(Channel.NOTIFICATION, startOfDayMs)
                 // Aggregate target is sum across all goals
@@ -93,29 +137,18 @@ class DashboardViewModel @Inject constructor(
             }
             .flowOn(Dispatchers.IO)
 
-    /** Check-in rates per goal (check-ins today / notification exposures today). */
-    val checkInRates: Flow<List<GoalCheckInRate>> =
-        db.goalDao()
-            .observeActive()
-            .combine(checkInDao.countsByGoalToday(LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli())) { goals, checkInCounts ->
-                val startOfDayMs = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant().toEpochMilli()
-                val checkInMap = checkInCounts.associateBy({ it.goalId }, { it.cnt })
-
-                goals.map { goal ->
-                    val checkInsToday = checkInMap[goal.id] ?: 0
-                    val exposuresToday = ledger.exposuresTodayByChannel(Channel.NOTIFICATION, startOfDayMs)
-                    // For per-goal exposure count, we'd need to extend ExposureDao
-                    // For now, distribute proportionally or use total as denominator
-                    GoalCheckInRate(
-                        goalId = goal.id,
-                        checkInsToday = checkInsToday,
-                        exposuresToday = exposuresToday, // TODO: refine to per-goal
-                        checkInRate = if (exposuresToday > 0) checkInsToday.toDouble() / exposuresToday else 0.0,
-                    )
-                }
-            }
-            .flowOn(Dispatchers.IO)
+    private companion object {
+        const val TAG = "DashboardViewModel"
+    }
 }
+
+/** State for one goal card on the dashboard. */
+data class GoalCardState(
+    val id: Long,
+    val displayName: String,
+    val emoji: String,
+    val checkInsToday: Int,
+)
 
 /** Per-goal pacing state exposed to the UI. */
 data class GoalPacingState(
@@ -134,15 +167,4 @@ data class DailyPacingSummary(
     val targetPerDay: Int,
 ) {
     val isOverBudget: Boolean = countToday > targetPerDay
-}
-
-/** Check-in rate statistics for a goal. */
-data class GoalCheckInRate(
-    val goalId: Long,
-    val checkInsToday: Int,
-    val exposuresToday: Int,
-    val checkInRate: Double, // 0.0 to 1.0, or >1.0 if multiple check-ins per exposure
-) {
-    val percentageDisplay: String
-        get() = "${(checkInRate * 100).toInt()}%"
 }

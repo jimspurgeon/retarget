@@ -26,6 +26,14 @@
     <string name="dashboard_pacing_wallpaper">Wallpaper: %1$d/%2$d today</string>
     <string name="dashboard_pacing_notification">Notifications: %1$d today</string>
     <string name="dashboard_add_widget">Add home-screen widget</string>
+    <string name="dashboard_add_goal">Add another campaign</string>
+    <string name="dashboard_checkins_today">%d check-ins today</string>
+    <string name="dashboard_checkin_hint">Tap to log each time you hit this goal today — it teaches the app what works.</string>
+    <string name="dashboard_check_in">Check in</string>
+    <string name="dashboard_pacing_title">Today&#8217;s pacing</string>
+    <string name="dashboard_pacing_target_suffix">/%d today</string>
+    <string name="dashboard_pacing_disabled">off</string>
+    <string name="add_campaign_title">Add a campaign</string>
 
     <!-- Preset campaigns -->
     <string name="preset_hydration_name">Hydration</string>

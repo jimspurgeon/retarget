@@ -20,7 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -132,8 +131,23 @@ private fun Root(
                 onNavigateToTransparency = {
                     navController.navigate("transparency")
                 },
+                onAddCampaign = {
+                    navController.navigate("add-campaign")
+                },
                 onPinWidget = onPinWidget,
                 onPinUnsupported = onPinUnsupported,
+            )
+        }
+        // Campaign catalog reached from the dashboard (#40): same preset
+        // picker as first run, minus the first-run extras (ticker opt-in,
+        // skip). Finished → back to the dashboard, which re-renders the
+        // new goal card reactively.
+        composable("add-campaign") {
+            OnboardingScreen(
+                onFinished = {
+                    navController.popBackStack()
+                },
+                catalogMode = true,
             )
         }
         composable("settings") {
@@ -162,5 +176,4 @@ private fun TransparencyRoute(viewModel: DashboardViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun getStartDestination(hasGoals: Boolean): String =
-    if (hasGoals) "dashboard" else "onboarding"
+private fun getStartDestination(hasGoals: Boolean): String = if (hasGoals) "dashboard" else "onboarding"

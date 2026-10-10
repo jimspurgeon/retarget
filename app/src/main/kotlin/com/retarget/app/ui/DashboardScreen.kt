@@ -17,9 +17,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -33,19 +38,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.retarget.app.R
-import com.retarget.widget.WidgetPinner
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
- * Phase 0 placeholder dashboard. Phase 1 replaces the body with real campaign
- * state (goals, exposures, pacing) from a DashboardViewModel.
+ * Dashboard: one card per active goal (display name, emoji, today's check-in
+ * count, in-app check-in button) plus aggregate pacing for today. The in-app
+ * check-in shares the notification/widget code path, so all three entry
+ * points feed the same bandit learning signal (#40).
  *
- * @param viewModel Dashboard view model providing pacing state.
+ * @param viewModel Dashboard view model providing per-goal and pacing state.
  * @param onNavigateToSettings Callback triggered when the settings FAB is clicked.
+ * @param onNavigateToTransparency Callback triggered when the transparency FAB is clicked.
+ * @param onAddCampaign Opens the campaign catalog (add-campaign route, #40).
  * @param onPinWidget Requests the system pin flow for the home-screen widget
  *   (M3.2); the goal picker (WidgetConfigurationActivity) follows automatically
  *   because the widget declares a configure activity. Returns whether the
@@ -58,6 +65,7 @@ fun DashboardScreen(
     viewModel: DashboardViewModel? = null,
     onNavigateToSettings: () -> Unit = {},
     onNavigateToTransparency: () -> Unit = {},
+    onAddCampaign: () -> Unit = {},
     onPinWidget: () -> Boolean = { false },
     onPinUnsupported: () -> Unit = {},
 ) {
@@ -65,100 +73,98 @@ fun DashboardScreen(
         .collectAsState(initial = DailyPacingSummary(0, 0))
     val notificationPacing by (viewModel?.notificationPacingSummary ?: MutableStateFlow(DailyPacingSummary(0, 0)))
         .collectAsState(initial = DailyPacingSummary(0, 0))
-    val checkInRates by (viewModel?.checkInRates ?: MutableStateFlow(emptyList()))
+    val goalCards by (viewModel?.perGoalState ?: MutableStateFlow(emptyList()))
         .collectAsState(initial = emptyList())
 
     Box(
         modifier = Modifier.fillMaxSize(),
     ) {
-        Column(
+        LazyColumn(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .padding(horizontal = 24.dp, vertical = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_foreground),
-                contentDescription = null, // decorative; text conveys the same meaning
-                modifier = Modifier.height(96.dp),
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.screen_dashboard_title),
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.dashboard_tagline),
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            Spacer(Modifier.height(24.dp))
-
-            // Pacing summary section
-            if (viewModel != null) {
+            item {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.Start,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        text = "Campaign Pacing",
-                        style = MaterialTheme.typography.titleMedium,
+                    Image(
+                        painter = painterResource(R.drawable.ic_launcher_foreground),
+                        contentDescription = null, // decorative; text conveys the same meaning
+                        modifier = Modifier.height(96.dp),
                     )
-                    Spacer(Modifier.height(8.dp))
-                    // Wallpaper pacing
-                    PacingRow(
-                        label = stringResource(R.string.settings_channel_wallpaper),
-                        count = wallpaperPacing.countToday,
-                        target = wallpaperPacing.targetPerDay,
-                    )
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // Notification pacing
-                    PacingRow(
-                        label = stringResource(R.string.settings_channel_notification),
-                        count = notificationPacing.countToday,
-                        target = notificationPacing.targetPerDay,
-                    )
-
                     Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = stringResource(R.string.screen_dashboard_title),
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(R.string.dashboard_tagline),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                }
+            }
 
-                    // Check-in rates per goal
-                    if (checkInRates.isNotEmpty()) {
+            if (viewModel != null) {
+                // One card per active goal (#40): display identity + today's
+                // progress + the in-app check-in affordance.
+                items(goalCards, key = { it.id }) { goal ->
+                    GoalCard(
+                        goal = goal,
+                        onCheckIn = { viewModel.checkIn(goal.id) },
+                    )
+                }
+
+                item {
+                    OutlinedButton(onClick = onAddCampaign, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.dashboard_add_goal))
+                    }
+                }
+
+                item {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "Check-In Rates",
+                            text = stringResource(R.string.dashboard_pacing_title),
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Spacer(Modifier.height(8.dp))
-                        checkInRates.forEach { rate ->
-                            CheckInRateRow(
-                                goalId = rate.goalId,
-                                checkInsToday = rate.checkInsToday,
-                                exposuresToday = rate.exposuresToday,
-                                rate = rate.percentageDisplay,
-                            )
-                            Spacer(Modifier.height(4.dp))
-                        }
+                        PacingRow(
+                            label = stringResource(R.string.settings_channel_wallpaper),
+                            count = wallpaperPacing.countToday,
+                            target = wallpaperPacing.targetPerDay,
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        PacingRow(
+                            label = stringResource(R.string.settings_channel_notification),
+                            count = notificationPacing.countToday,
+                            target = notificationPacing.targetPerDay,
+                        )
                     }
+                }
 
-                    Spacer(Modifier.height(24.dp))
-
+                item {
                     // Widget pin affordance (M3.2, gatekeeper M2 fix): the system
                     // pin flow launches WidgetConfigurationActivity (declared as
                     // android:configure), where the user picks which goal shows.
-                    OutlinedButton(onClick = { if (!onPinWidget()) onPinUnsupported() }) {
+                    OutlinedButton(onClick = { if (!onPinWidget()) onPinUnsupported() }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.dashboard_add_widget))
                     }
                 }
             } else {
-                Text(
-                    text = stringResource(R.string.dashboard_placeholder_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                item {
+                    Text(
+                        text = stringResource(R.string.dashboard_placeholder_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         }
 
@@ -180,6 +186,52 @@ fun DashboardScreen(
                 imageVector = Icons.Default.Settings,
                 contentDescription = stringResource(R.string.settings_icon_content_description),
             )
+        }
+    }
+}
+
+/**
+ * One goal's card: emoji + display name, today's check-in count, and the
+ * in-app check-in button. Tapping records a check-in (same transactional
+ * path as notification/widget actions) and the count updates reactively.
+ */
+@Composable
+private fun GoalCard(
+    goal: GoalCardState,
+    onCheckIn: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = goal.emoji,
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = goal.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.dashboard_checkins_today, goal.checkInsToday),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.dashboard_checkin_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.height(12.dp))
+            FilledTonalButton(onClick = onCheckIn) {
+                Text(stringResource(R.string.dashboard_check_in))
+            }
         }
     }
 }
@@ -213,7 +265,7 @@ private fun PacingRow(
 
         if (target > 0) {
             Text(
-                text = "/$target today",
+                text = stringResource(R.string.dashboard_pacing_target_suffix, target),
                 style = MaterialTheme.typography.bodySmall,
             )
             Spacer(Modifier.width(8.dp))
@@ -225,54 +277,18 @@ private fun PacingRow(
             )
         } else {
             Text(
-                text = "disabled",
+                text = stringResource(R.string.dashboard_pacing_disabled),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
     }
 }
 
-/**
- * Row showing check-in rate for a goal.
- *
- * @param goalId The goal identifier (for debugging/reference)
- * @param checkInsToday Number of check-ins today
- * @param exposuresToday Number of notification exposures today
- * @param rate Percentage string (e.g., "66%")
- */
+@Preview(showBackground = true)
 @Composable
-private fun CheckInRateRow(
-    goalId: Long,
-    checkInsToday: Int,
-    exposuresToday: Int,
-    rate: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "Goal #$goalId",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.width(100.dp),
-        )
-        Text(
-            text = "$checkInsToday/$exposuresToday",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Text(
-            text = "($rate)",
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.width(50.dp),
-        )
-        if (exposuresToday > 0) {
-            Spacer(Modifier.width(8.dp))
-            LinearProgressIndicator(
-                progress = minOf(checkInsToday.toFloat() / exposuresToday, 1.0f),
-                modifier = Modifier
-                    .fillMaxWidth(0.3f)
-                    .height(4.dp),
-            )
-        }
-    }
+private fun GoalCardPreview() {
+    GoalCard(
+        goal = GoalCardState(id = 1, displayName = "Hydration", emoji = "💧", checkInsToday = 2),
+        onCheckIn = {},
+    )
 }
