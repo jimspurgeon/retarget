@@ -35,5 +35,7 @@ object ExportModule {
         goalDao: GoalDao,
         exposureDao: ExposureDao,
         checkInDao: CheckInDao,
-    ): ExportUseCase = RoomExportUseCase(goalDao, exposureDao, checkInDao)
+        learningDao: com.retarget.learning.LearningStateDao,
+    ): ExportUseCase =
+        RoomExportUseCase(goalDao, exposureDao, checkInDao, learningDao)
 }
