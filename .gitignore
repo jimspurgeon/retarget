@@ -39,3 +39,6 @@ __pycache__/
 .creative-staging/
 # Resumable metadata cache for hand-picked pack ingestion (dev-time only)
 app/src/main/assets/creative-packs/*/.handpicked-meta-cache.json
+
+# Local multi-agent orchestration specs and archived verdicts (dev-time only)
+orch-specs/
