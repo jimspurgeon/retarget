@@ -42,12 +42,12 @@
              permission that guards JobService bindings; declaring it here made the
              service unstartable by the app itself (SecurityException). -->
         <service
-            android:name=".analytics.CheckInService"
+            android:name="com.retarget.analytics.CheckInService"
             android:exported="false" />
 
         <!-- Notification action handlers (Milestone 2.6) -->
         <receiver
-            android:name=".broadcast.FewerNotificationsReceiver"
+            android:name="com.retarget.broadcast.FewerNotificationsReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>
@@ -56,7 +56,7 @@
         </receiver>
 
         <receiver
-            android:name=".broadcast.CheckInReceiver"
+            android:name="com.retarget.broadcast.CheckInReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>
@@ -65,7 +65,7 @@
         </receiver>
 
         <receiver
-            android:name=".broadcast.SnoozeReceiver"
+            android:name="com.retarget.broadcast.SnoozeReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>
