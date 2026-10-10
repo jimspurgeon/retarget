@@ -199,6 +199,19 @@ object EpsilonGreedyBandit {
         )
     }
 
+    /**
+     * Registers one observation (a nudge delivered through a channel) for a
+     * learning cell, incrementing [LearningStateEntity.attempts]. Without
+     * this, the [MIN_OBSERVATIONS] floor can never be reached and learned
+     * weights stay permanently neutral (gatekeeper B1, 2026-10-10).
+     *
+     * Called from the delivery path at exposure time — "observation" means
+     * a nudge delivered, matching the approved design's "~10 observations
+     * per (goal, bucket)" semantics.
+     */
+    fun incrementObservation(state: LearningStateEntity): LearningStateEntity =
+        state.copy(attempts = state.attempts + 1)
+
     /** Scale for sub-theme additive bonuses (logged decision; see [subThemeBonus]). */
     const val BONUS_SCALE = 0.25
 

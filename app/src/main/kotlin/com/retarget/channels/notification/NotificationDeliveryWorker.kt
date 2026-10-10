@@ -228,6 +228,13 @@ class NotificationDeliveryWorker(
             // Record exposure, then persist the delivered copy line so the next
             // nudge for this theme avoids repeating it.
             ledger.recordExposure(selected.id, selected.subTheme, Channel.NOTIFICATION, now)
+            // M3.4 bandit: an exposure = one observation for the (bucket, subTheme)
+            // cell — increments attempts, enabling the MIN_OBSERVATIONS floor gate
+            // that unlocks learned weights. See EpsilonGreedyBandit.incrementObservation.
+            val obsBucket = com.retarget.learning.EpsilonGreedyBandit.bucketOf(now, java.time.ZoneId.systemDefault())
+            db.learningStateDao().upsert(
+                com.retarget.learning.EpsilonGreedyBandit.incrementObservation(db.learningStateDao().get(goal.id, obsBucket, selected.subTheme) ?: com.retarget.learning.LearningStateEntity(goalId = goal.id, bucket = obsBucket, subTheme = selected.subTheme)),
+            )
             copyPrefs.edit().putString(lastLineKey(theme), selectedLine).apply()
             Log.i(TAG, "Notification delivered: goal=${goal.id}, creative=${selected.id}")
 
