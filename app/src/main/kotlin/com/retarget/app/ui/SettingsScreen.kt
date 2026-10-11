@@ -44,7 +44,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retarget.app.R
 import com.retarget.channels.notification.TickerChannel
-import com.retarget.goal.CampaignSettings
+import com.retarget.goal.GoalEntity
 import com.retarget.goal.GoalRepository
 import com.retarget.scheduler.NotificationScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -151,13 +151,24 @@ fun SettingsScreen(
                 ResetLearningCard(onClick = { showResetLearningDialog = true })
             }
 
-            items(uiState.channelSettings, key = { it.channelName }) { channel ->
-                ChannelToggleCard(
-                    channelName = channel.channelName,
-                    enabled = channel.enabled,
-                    targetsPerDay = channel.targetsPerDay,
-                    onToggle = { viewModel.toggleChannel(channel.channelName, context) },
-                )
+            // One channel-toggle section per active goal (#40): toggling
+            // scopes to that goal's CampaignSettings only.
+            uiState.goalSections.forEach { section ->
+                item(key = "goal-${section.goalId}") {
+                    Text(
+                        text = section.displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                items(section.channelSettings, key = { "goal-${section.goalId}-${it.channelName}" }) { channel ->
+                    ChannelToggleCard(
+                        channelName = channel.channelName,
+                        enabled = channel.enabled,
+                        targetsPerDay = channel.targetsPerDay,
+                        onToggle = { viewModel.toggleChannel(section.goalId, channel.channelName, context) },
+                    )
+                }
             }
         }
     }
@@ -239,7 +250,15 @@ private fun ChannelToggleCard(
 data class SettingsUiState(
     val quietHoursStart: Int = 22,
     val quietHoursEnd: Int = 7,
-    val channelSettings: List<ChannelSetting> = emptyList(),
+    /** One section (per-goal channel toggles) per active goal (#40). */
+    val goalSections: List<GoalSettingsSection> = emptyList(),
+)
+
+/** Channel toggles for a single goal. */
+data class GoalSettingsSection(
+    val goalId: Long,
+    val displayName: String,
+    val channelSettings: List<ChannelSetting>,
 )
 
 /**
@@ -325,14 +344,12 @@ class SettingsViewModel
             repo
                 .observeActive()
                 .map { goals ->
-                    goals.firstOrNull()?.let { goal ->
-                        buildSettingsUiState(goal.settings)
-                    } ?: buildSettingsUiState(CampaignSettings(wallpaperTargetsPerDay = 1, notificationTargetsPerDay = 0))
+                    buildSettingsUiState(goals)
                 }
                 .stateIn(viewModelScope, SharingStarted.Eagerly, initialValue = SettingsUiState())
 
         /**
-         * Toggles a channel's enabled state.
+         * Toggles a channel's enabled state for a specific goal.
          *
          * For "Notification" channel:
          * - On disable: cancels WorkManager job, shows Toast
@@ -342,45 +359,49 @@ class SettingsViewModel
          * - Updates settings (scheduler manager handles WorkManager changes)
          */
         fun toggleChannel(
+            goalId: Long,
             channelName: String,
             context: Context,
         ) {
             viewModelScope.launch {
                 val activeGoals = repo.observeActive().first()
-                activeGoals.firstOrNull()?.let { goal ->
-                    val currentSettings = goal.settings
-                    val newEnabled =
-                        when (channelName) {
-                            "Wallpaper" -> !currentSettings.wallpaperEnabled
-                            "Notification" -> !currentSettings.notificationEnabled
-                            "Ticker" -> !currentSettings.tickerEnabled
-                            else -> false
-                        }
-
-                    val updatedSettings =
-                        when (channelName) {
-                            "Wallpaper" ->
-                                currentSettings.copy(wallpaperEnabled = newEnabled)
-
-                            "Notification" ->
-                                currentSettings.copy(notificationEnabled = newEnabled)
-
-                            "Ticker" ->
-                                currentSettings.copy(tickerEnabled = newEnabled)
-
-                            else -> currentSettings
-                        }
-
-                    repo.updateSettings(goal.id, updatedSettings)
-
-                    // Handle WorkManager changes and show Toast
-                    handleChannelToggleEffects(
-                        context = context,
-                        channelName = channelName,
-                        newEnabled = newEnabled,
-                        goalId = goal.id,
-                    )
+                val goal = activeGoals.find { it.id == goalId }
+                if (goal == null) {
+                    android.util.Log.w(TAG, "Cannot toggle $channelName: goalId=$goalId not found")
+                    return@launch
                 }
+                val currentSettings = goal.settings
+                val newEnabled =
+                    when (channelName) {
+                        "Wallpaper" -> !currentSettings.wallpaperEnabled
+                        "Notification" -> !currentSettings.notificationEnabled
+                        "Ticker" -> !currentSettings.tickerEnabled
+                        else -> false
+                    }
+
+                val updatedSettings =
+                    when (channelName) {
+                        "Wallpaper" ->
+                            currentSettings.copy(wallpaperEnabled = newEnabled)
+
+                        "Notification" ->
+                            currentSettings.copy(notificationEnabled = newEnabled)
+
+                        "Ticker" ->
+                            currentSettings.copy(tickerEnabled = newEnabled)
+
+                        else -> currentSettings
+                    }
+
+                repo.updateSettings(goal.id, updatedSettings)
+
+                // Handle WorkManager changes and show Toast
+                handleChannelToggleEffects(
+                    context = context,
+                    channelName = channelName,
+                    newEnabled = newEnabled,
+                    goalId = goal.id,
+                )
             }
         }
 
@@ -460,27 +481,38 @@ class SettingsViewModel
             }
         }
 
-        private fun buildSettingsUiState(settings: CampaignSettings): SettingsUiState =
+        private fun buildSettingsUiState(goals: List<GoalEntity>): SettingsUiState =
             SettingsUiState(
                 quietHoursStart = 22,
                 quietHoursEnd = 7,
-                channelSettings =
-                    listOf(
-                        ChannelSetting(
-                            channelName = "Wallpaper",
-                            enabled = settings.wallpaperEnabled,
-                            targetsPerDay = settings.wallpaperTargetsPerDay,
-                        ),
-                        ChannelSetting(
-                            channelName = "Notification",
-                            enabled = settings.notificationEnabled,
-                            targetsPerDay = settings.notificationTargetsPerDay,
-                        ),
-                        ChannelSetting(
-                            channelName = "Ticker",
-                            enabled = settings.tickerEnabled,
-                            targetsPerDay = settings.tickerTargetsPerDay,
-                        ),
-                    ),
+                goalSections =
+                    goals.map { goal ->
+                        GoalSettingsSection(
+                            goalId = goal.id,
+                            displayName = goal.displayName,
+                            channelSettings =
+                                listOf(
+                                    ChannelSetting(
+                                        channelName = "Wallpaper",
+                                        enabled = goal.settings.wallpaperEnabled,
+                                        targetsPerDay = goal.settings.wallpaperTargetsPerDay,
+                                    ),
+                                    ChannelSetting(
+                                        channelName = "Notification",
+                                        enabled = goal.settings.notificationEnabled,
+                                        targetsPerDay = goal.settings.notificationTargetsPerDay,
+                                    ),
+                                    ChannelSetting(
+                                        channelName = "Ticker",
+                                        enabled = goal.settings.tickerEnabled,
+                                        targetsPerDay = goal.settings.tickerTargetsPerDay,
+                                    ),
+                                ),
+                        )
+                    },
             )
+
+        private companion object {
+            const val TAG = "SettingsViewModel"
+        }
     }

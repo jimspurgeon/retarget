@@ -9,18 +9,27 @@ package com.retarget.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -66,15 +75,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    // Pin-fallback dialog state (#41): the launcher refused
+                    // programmatic pinning (expected on AOSP), so surface
+                    // manual steps instead of a dismissible Toast.
+                    var showPinFallbackDialog by remember { mutableStateOf(false) }
+
+                    if (showPinFallbackDialog) {
+                        WidgetPinFallbackDialog(onDismiss = { showPinFallbackDialog = false })
+                    }
+
                     Root(
                         onPinWidget = { WidgetPinner.pinWidget(this) },
-                        onPinUnsupported = {
-                            android.widget.Toast.makeText(
-                                this@MainActivity,
-                                R.string.widget_pin_unsupported,
-                                android.widget.Toast.LENGTH_LONG,
-                            ).show()
-                        },
+                        onPinUnsupported = { showPinFallbackDialog = true },
                     )
                 }
             }
@@ -132,8 +144,23 @@ private fun Root(
                 onNavigateToTransparency = {
                     navController.navigate("transparency")
                 },
+                onAddCampaign = {
+                    navController.navigate("add-campaign")
+                },
                 onPinWidget = onPinWidget,
                 onPinUnsupported = onPinUnsupported,
+            )
+        }
+        // Campaign catalog reached from the dashboard (#40): same preset
+        // picker as first run, minus the first-run extras (ticker opt-in,
+        // skip). Finished → back to the dashboard, which re-renders the
+        // new goal card reactively.
+        composable("add-campaign") {
+            OnboardingScreen(
+                onFinished = {
+                    navController.popBackStack()
+                },
+                catalogMode = true,
             )
         }
         composable("settings") {
@@ -162,5 +189,30 @@ private fun TransparencyRoute(viewModel: DashboardViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun getStartDestination(hasGoals: Boolean): String =
-    if (hasGoals) "dashboard" else "onboarding"
+private fun getStartDestination(hasGoals: Boolean): String = if (hasGoals) "dashboard" else "onboarding"
+
+/**
+ * Dialog showing manual steps to pin the widget when the launcher
+ * refuses programmatic pinning (expected on AOSP Launcher3, #41).
+ */
+@Composable
+private fun WidgetPinFallbackDialog(onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.widget_pin_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.widget_pin_dialog_body))
+                Spacer(Modifier.height(8.dp))
+                Text("1. ${stringResource(R.string.widget_pin_step_1)}")
+                Text("2. ${stringResource(R.string.widget_pin_step_2)}")
+                Text("3. ${stringResource(R.string.widget_pin_step_3)}")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+    )
+}
