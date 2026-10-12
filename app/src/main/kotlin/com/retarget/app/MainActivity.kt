@@ -9,12 +9,16 @@ package com.retarget.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,12 +38,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.retarget.app.R
+import com.retarget.app.ui.DailyPacingSummary
 import com.retarget.app.ui.DashboardScreen
 import com.retarget.app.ui.DashboardViewModel
-import com.retarget.app.ui.DailyPacingSummary
 import com.retarget.app.ui.SettingsScreen
 import com.retarget.app.ui.TransparencyScreen
 import com.retarget.app.ui.onboarding.OnboardingScreen
+import com.retarget.app.ui.theme.RetargetTheme
 import com.retarget.goal.GoalRepository
 import com.retarget.widget.WidgetPinner
 import dagger.hilt.android.AndroidEntryPoint
@@ -73,7 +78,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
         setContent {
-            MaterialTheme {
+            RetargetTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     // Pin-fallback dialog state (#41): the launcher refused
                     // programmatic pinning (expected on AOSP), so surface
@@ -127,7 +132,15 @@ private fun Root(
     val hasGoals = rootViewModel.hasGoals.collectAsState(initial = false)
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = getStartDestination(hasGoals.value)) {
+    NavHost(
+        navController = navController,
+        startDestination = getStartDestination(hasGoals.value),
+        enterTransition = { fadeIn(tween(180)) + slideInVertically(tween(220)) { it / 8 } },
+        exitTransition = { fadeOut(tween(140)) },
+        popEnterTransition = { fadeIn(tween(180)) },
+        popExitTransition =
+            { fadeOut(tween(140)) + slideOutVertically(tween(220)) { it / 8 } },
+    ) {
         composable("onboarding") {
             OnboardingScreen(
                 onFinished = {
@@ -164,16 +177,21 @@ private fun Root(
             )
         }
         composable("settings") {
-            SettingsScreen()
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
         }
         composable("transparency") {
-            TransparencyRoute()
+            TransparencyRoute(onNavigateBack = { navController.popBackStack() })
         }
     }
 }
 
 @Composable
-private fun TransparencyRoute(viewModel: DashboardViewModel = hiltViewModel()) {
+private fun TransparencyRoute(
+    onNavigateBack: () -> Unit = {},
+    viewModel: DashboardViewModel = hiltViewModel(),
+) {
     val goals by viewModel.activeGoals.collectAsState(initial = emptyList())
     val notifPacing by viewModel.notificationPacingSummary.collectAsState(
         initial = DailyPacingSummary(0, 0),

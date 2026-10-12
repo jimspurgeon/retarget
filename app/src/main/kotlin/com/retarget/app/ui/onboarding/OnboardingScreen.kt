@@ -41,14 +41,19 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.retarget.app.R
 import com.retarget.goal.PresetCampaign
 
-/** Theme accent per preset — placeholder visuals until creative packs land (issue #4). */
-private fun PresetCampaign.accentColor(): Color =
+/**
+ * Theme accent per preset — placeholder visuals until creative packs land
+ * (issue #4). Derived from the active color scheme's tonal containers so the
+ * chips follow Material You dynamic color instead of fixed brand hex values.
+ */
+@Composable
+private fun presetAccent(id: String): Color =
     when (id) {
-        "hydration" -> Color(0xFF4FA3D9)
-        "fresh-air" -> Color(0xFFF2B84B)
-        "fruit" -> Color(0xFFE05C4B)
-        "vegetables" -> Color(0xFF5CA35C)
-        else -> Color(0xFF888888)
+        "hydration" -> MaterialTheme.colorScheme.primaryContainer
+        "fresh-air" -> MaterialTheme.colorScheme.tertiaryContainer
+        "fruit" -> MaterialTheme.colorScheme.errorContainer // tonal coral, not an error signal
+        "vegetables" -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
 /**
@@ -187,7 +192,7 @@ private fun PresetCard(
         ) {
             Box(
                 modifier =
-                    Modifier.size(48.dp).background(preset.accentColor(), CircleShape),
+                    Modifier.size(48.dp).background(presetAccent(preset.id), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(text = preset.emoji, style = MaterialTheme.typography.titleLarge)
