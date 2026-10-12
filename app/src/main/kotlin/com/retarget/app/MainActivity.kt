@@ -182,13 +182,16 @@ private fun Root(
             )
         }
         composable("transparency") {
-            TransparencyRoute()
+            TransparencyRoute(onNavigateBack = { navController.popBackStack() })
         }
     }
 }
 
 @Composable
-private fun TransparencyRoute(viewModel: DashboardViewModel = hiltViewModel()) {
+private fun TransparencyRoute(
+    onNavigateBack: () -> Unit = {},
+    viewModel: DashboardViewModel = hiltViewModel(),
+) {
     val goals by viewModel.activeGoals.collectAsState(initial = emptyList())
     val notifPacing by viewModel.notificationPacingSummary.collectAsState(
         initial = DailyPacingSummary(0, 0),
