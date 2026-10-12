@@ -6,6 +6,34 @@ All notable changes to this project are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [v0.5.0] - 2026-10-12 — Functional fixes & Material You redesign
+
+### Added
+
+- **In-app check-in (#40):** each goal card on the dashboard has a "Check in"
+  button — no need to find a notification. The button flips to "Checked in ✓"
+  and the count updates reactively.
+- **Multi-goal dashboard (#40):** the dashboard and Settings now show one card
+  or section per active goal, with an "Add another campaign" flow reusing the
+  preset catalog.
+- **Material You redesign:** dynamic color derived from your wallpaper
+  (Android 12+; a calm baseline palette on older versions), Material 3
+  scaffold shells with top app bars and back navigation, spring-physics
+  motion, and tonal cards throughout the dashboard, Settings, onboarding,
+  and transparency screens.
+
+### Fixed
+
+- **Widget pin fallback (#41):** when the launcher refuses programmatic widget
+  pinning (common on AOSP launchers), the app now shows a dialog with the
+  three manual steps instead of a terse "not supported" toast.
+- **Check-in clarity (#42):** "Check-In Rates" renamed to "Today's progress";
+  the dashboard shows plain counts instead of percentages, and the remaining
+  hardcoded dashboard strings were externalized.
+- **Fully-qualified receiver names in the manifest (#39):** notification and
+  boot receivers were never registered, so notifications never fired on some
+  builds; names are now fully qualified.
+
 ## [v0.4.0] - 2026-10-10 — Phase 3 "The Agency"
 
 ### Added
