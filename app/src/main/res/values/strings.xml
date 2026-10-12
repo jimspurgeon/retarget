@@ -26,6 +26,14 @@
     <string name="dashboard_pacing_wallpaper">Wallpaper: %1$d/%2$d today</string>
     <string name="dashboard_pacing_notification">Notifications: %1$d today</string>
     <string name="dashboard_add_widget">Add home-screen widget</string>
+    <string name="dashboard_add_goal">Add another campaign</string>
+    <string name="dashboard_checkins_today">%d check-ins today</string>
+    <string name="dashboard_checkin_hint">Tap to log each time you hit this goal today — it teaches the app what works.</string>
+    <string name="dashboard_check_in">Check in</string>
+    <string name="dashboard_pacing_title">Today&#8217;s pacing</string>
+    <string name="dashboard_pacing_target_suffix">/%d today</string>
+    <string name="dashboard_pacing_disabled">off</string>
+    <string name="add_campaign_title">Add a campaign</string>
 
     <!-- Preset campaigns -->
     <string name="preset_hydration_name">Hydration</string>
@@ -75,7 +83,13 @@
     <string name="widget_config_save">Save</string>
     <string name="widget_config_no_goals">Add a goal first — the widget shows it once you have one.</string>
     <string name="widget_config_pick_first">Pick a goal to continue</string>
-    <string name="widget_pin_unsupported">Your launcher doesn’t support pinning widgets — add “Retarget” from the launcher’s widget picker instead.</string>
+    <!-- Widget pin fallback dialog (#41): manual steps when the launcher
+         refuses programmatic pinning (expected on Launcher3/AOSP). -->
+    <string name="widget_pin_dialog_title">Add the widget manually</string>
+    <string name="widget_pin_dialog_body">Your home screen didn\'t accept an automatic add, but the widget is installed. Three quick steps:</string>
+    <string name="widget_pin_step_1">Long-press an empty spot on your home screen</string>
+    <string name="widget_pin_step_2">Tap "Widgets"</string>
+    <string name="widget_pin_step_3">Find Retarget and drag it where you want it</string>
     <!-- Lock-screen ticker (M3.3) -->
     <string name="channel_ticker_name">Goal ticker</string>
     <string name="settings_channel_ticker">Lock-screen ticker</string>

@@ -94,9 +94,9 @@ class SettingsViewModelTest {
     @Test
     fun `uiState includes Ticker channel setting`() = runBlocking {
         // uiState starts at the empty default; wait for the populated emission.
-        val state = viewModel.uiState.first { it.channelSettings.isNotEmpty() }
+        val state = viewModel.uiState.first { it.goalSections.isNotEmpty() }
 
-        val ticker = state.channelSettings.first { it.channelName == "Ticker" }
+        val ticker = state.goalSections.single().channelSettings.first { it.channelName == "Ticker" }
         assertFalse(ticker.enabled)
         assertEquals(2, ticker.targetsPerDay)
     }
@@ -105,16 +105,60 @@ class SettingsViewModelTest {
     fun `toggleChannel Ticker flips tickerEnabled in persisted settings`() =
         runBlocking {
             val context = ApplicationProvider.getApplicationContext<Context>()
+            val goalId = repo.observeActive().first().single().id
 
-            viewModel.toggleChannel("Ticker", context)
+            viewModel.toggleChannel(goalId, "Ticker", context)
             // Wait until the reflected UI state shows the flip, then check persistence.
-            viewModel.uiState.first { s -> s.channelSettings.first { it.channelName == "Ticker" }.enabled }
+            viewModel.uiState.first { s -> s.goalSections.single().channelSettings.first { it.channelName == "Ticker" }.enabled }
             assertTrue(repo.observeActive().first().single().settings.tickerEnabled)
 
-            viewModel.toggleChannel("Ticker", context)
-            viewModel.uiState.first { s -> !s.channelSettings.first { it.channelName == "Ticker" }.enabled }
+            viewModel.toggleChannel(goalId, "Ticker", context)
+            viewModel.uiState.first { s -> !s.goalSections.single().channelSettings.first { it.channelName == "Ticker" }.enabled }
             assertFalse(repo.observeActive().first().single().settings.tickerEnabled)
         }
+
+    @Test
+    fun `uiState has one section per active goal`() = runBlocking {
+        repo.installPreset("fresh-air", nowMs = 1000L)
+
+        val state = viewModel.uiState.first { it.goalSections.size == 2 }
+        // observeActive orders by createdAt DESC: fresh-air (1000L) precedes
+        // the seed hydration goal (createdAt = 0L).
+        assertEquals(
+            listOf("Fresh Air", "Hydration Goal"),
+            state.goalSections.map { it.displayName },
+        )
+        // Distinct goalIds keep LazyColumn keys unique across sections.
+        assertEquals(2, state.goalSections.map { it.goalId }.distinct().size)
+    }
+
+    @Test
+    fun `toggleChannel scopes to the targeted goal only`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        repo.installPreset("fresh-air", nowMs = 1000L)
+        val hydrationId = repo.observeActive().first().single { it.presetId == "hydration" }.id
+        val freshAirId = repo.observeActive().first().single { it.presetId == "fresh-air" }.id
+
+        viewModel.toggleChannel(hydrationId, "Ticker", context)
+        viewModel.uiState.first { s ->
+            s.goalSections.first { g -> g.goalId == hydrationId }.channelSettings
+                .first { it.channelName == "Ticker" }.enabled
+        }
+
+        val goals = repo.observeActive().first()
+        assertTrue(goals.single { it.id == hydrationId }.settings.tickerEnabled)
+        // The other goal's settings are untouched.
+        assertFalse(goals.single { it.id == freshAirId }.settings.tickerEnabled)
+    }
+
+    @Test
+    fun `toggleChannel for unknown goalId is a logged no-op`() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        viewModel.toggleChannel(999L, "Ticker", context)
+        // No crash and no state change.
+        assertFalse(repo.observeActive().first().single().settings.tickerEnabled)
+    }
 
     @Test
     fun `installPreset without opt-in leaves ticker disabled`() = runBlocking {

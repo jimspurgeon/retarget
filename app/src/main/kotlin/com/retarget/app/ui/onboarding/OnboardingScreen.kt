@@ -53,11 +53,17 @@ private fun PresetCampaign.accentColor(): Color =
 
 /**
  * Preset picker: the "browse our campaign catalog" moment. One tap installs.
+ *
+ * @param catalogMode True when opened from the dashboard's "Add another
+ *   campaign" (add-campaign route, #40): hides the first-run extras (ticker
+ *   opt-in, skip) and swaps to the catalog title. Activation itself is the
+ *   same install path as first run.
  */
 @Composable
 fun OnboardingScreen(
     onFinished: () -> Unit,
     modifier: Modifier = Modifier,
+    catalogMode: Boolean = false,
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -70,7 +76,9 @@ fun OnboardingScreen(
         modifier = modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 32.dp),
     ) {
         Text(
-            text = stringResource(R.string.screen_onboarding_title),
+            text = stringResource(
+                if (catalogMode) R.string.add_campaign_title else R.string.screen_onboarding_title,
+            ),
             style = MaterialTheme.typography.headlineMedium,
         )
         Spacer(Modifier.height(8.dp))
@@ -91,15 +99,19 @@ fun OnboardingScreen(
                     onClick = { viewModel.activate(preset.id) },
                 )
             }
-            item {
-                TickerOptInCard(
-                    checked = state.tickerOptIn,
-                    onCheckedChange = viewModel::setTickerOptIn,
-                )
+            if (!catalogMode) {
+                item {
+                    TickerOptInCard(
+                        checked = state.tickerOptIn,
+                        onCheckedChange = viewModel::setTickerOptIn,
+                    )
+                }
             }
         }
-        TextButton(onClick = viewModel::skip, modifier = Modifier.align(Alignment.End)) {
-            Text(stringResource(R.string.onboarding_skip))
+        if (!catalogMode) {
+            TextButton(onClick = viewModel::skip, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.onboarding_skip))
+            }
         }
     }
 }
