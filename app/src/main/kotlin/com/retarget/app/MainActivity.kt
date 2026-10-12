@@ -9,6 +9,11 @@ package com.retarget.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -127,7 +132,15 @@ private fun Root(
     val hasGoals = rootViewModel.hasGoals.collectAsState(initial = false)
     val navController = rememberNavController()
 
-    NavHost(navController = navController, startDestination = getStartDestination(hasGoals.value)) {
+    NavHost(
+        navController = navController,
+        startDestination = getStartDestination(hasGoals.value),
+        enterTransition = { fadeIn(tween(180)) + slideInVertically(tween(220)) { it / 8 } },
+        exitTransition = { fadeOut(tween(140)) },
+        popEnterTransition = { fadeIn(tween(180)) },
+        popExitTransition =
+            { fadeOut(tween(140)) + slideOutVertically(tween(220)) { it / 8 } },
+    ) {
         composable("onboarding") {
             OnboardingScreen(
                 onFinished = {
