@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -40,6 +39,7 @@ import com.retarget.app.ui.DailyPacingSummary
 import com.retarget.app.ui.SettingsScreen
 import com.retarget.app.ui.TransparencyScreen
 import com.retarget.app.ui.onboarding.OnboardingScreen
+import com.retarget.app.ui.theme.RetargetTheme
 import com.retarget.goal.GoalRepository
 import com.retarget.widget.WidgetPinner
 import dagger.hilt.android.AndroidEntryPoint
@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
         setContent {
-            MaterialTheme {
+            RetargetTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     // Pin-fallback dialog state (#41): the launcher refused
                     // programmatic pinning (expected on AOSP), so surface
