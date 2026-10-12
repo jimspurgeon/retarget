@@ -38,9 +38,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.retarget.app.R
+import com.retarget.app.ui.DailyPacingSummary
 import com.retarget.app.ui.DashboardScreen
 import com.retarget.app.ui.DashboardViewModel
-import com.retarget.app.ui.DailyPacingSummary
 import com.retarget.app.ui.SettingsScreen
 import com.retarget.app.ui.TransparencyScreen
 import com.retarget.app.ui.onboarding.OnboardingScreen
@@ -177,7 +177,9 @@ private fun Root(
             )
         }
         composable("settings") {
-            SettingsScreen()
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+            )
         }
         composable("transparency") {
             TransparencyRoute()

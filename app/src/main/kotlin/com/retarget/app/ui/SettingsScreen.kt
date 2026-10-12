@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,20 +21,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -57,12 +65,15 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * Settings screen: displays quiet hours and per-channel toggles for the active goal.
- * Extensible structure for future settings (quiet-hours editing, pacing adjustments).
+ * Settings screen: quiet hours and per-goal channel toggles, plus export
+ * and reset-learning actions. Each goal's channels are grouped in one card
+ * so the sections read as units; the top app bar provides back navigation.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
+    onNavigateBack: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val context = LocalContext.current
@@ -114,28 +125,41 @@ fun SettingsScreen(
         )
     }
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.screen_settings_title),
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.settings_subtitle),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(24.dp))
-
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(R.string.screen_settings_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back_navigation_content_description),
+                        )
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding =
+                PaddingValues(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = innerPadding.calculateTopPadding() + 8.dp,
+                    bottom = innerPadding.calculateBottomPadding() + 32.dp,
+                ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item {
+                Text(
+                    text = stringResource(R.string.settings_subtitle),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             item {
                 QuietHoursCard(uiState.quietHoursStart, uiState.quietHoursEnd)
             }
@@ -151,23 +175,41 @@ fun SettingsScreen(
                 ResetLearningCard(onClick = { showResetLearningDialog = true })
             }
 
-            // One channel-toggle section per active goal (#40): toggling
-            // scopes to that goal's CampaignSettings only.
+            // One grouped card per active goal (#40): toggling scopes to that
+            // goal's CampaignSettings. Dividers separate channel rows so the
+            // card reads as one goal's unit rather than three stacked rows.
             uiState.goalSections.forEach { section ->
                 item(key = "goal-${section.goalId}") {
-                    Text(
-                        text = section.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                items(section.channelSettings, key = { "goal-${section.goalId}-${it.channelName}" }) { channel ->
-                    ChannelToggleCard(
-                        channelName = channel.channelName,
-                        enabled = channel.enabled,
-                        targetsPerDay = channel.targetsPerDay,
-                        onToggle = { viewModel.toggleChannel(section.goalId, channel.channelName, context) },
-                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors =
+                            CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            ),
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = section.displayName,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            section.channelSettings.forEachIndexed { index, channel ->
+                                if (index > 0) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    Spacer(Modifier.height(8.dp))
+                                }
+                                ChannelToggleRow(
+                                    channelName = channel.channelName,
+                                    enabled = channel.enabled,
+                                    targetsPerDay = channel.targetsPerDay,
+                                    onToggle = { viewModel.toggleChannel(section.goalId, channel.channelName, context) },
+                                )
+                                if (index < section.channelSettings.lastIndex) {
+                                    Spacer(Modifier.height(8.dp))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -175,7 +217,10 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun QuietHoursCard(startHour: Int, endHour: Int) {
+private fun QuietHoursCard(
+    startHour: Int,
+    endHour: Int,
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -201,48 +246,49 @@ private fun QuietHoursCard(startHour: Int, endHour: Int) {
     }
 }
 
+/**
+ * One channel row inside a goal's settings card. The switch is the toggle
+ * affordance; the row itself is not clickable so the switch stays the single
+ * clear control (no accidental toggles while scrolling).
+ */
 @Composable
-private fun ChannelToggleCard(
+private fun ChannelToggleRow(
     channelName: String,
     enabled: Boolean,
     targetsPerDay: Int,
     onToggle: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = when (channelName) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text =
+                    when (channelName) {
                         "Wallpaper" -> stringResource(R.string.settings_channel_wallpaper)
                         "Notification" -> stringResource(R.string.settings_channel_notification)
                         "Ticker" -> stringResource(R.string.settings_channel_ticker)
                         else -> channelName
                     },
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Spacer(Modifier.height(4.dp))
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.settings_channel_target, targetsPerDay),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (channelName == "Ticker") {
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = stringResource(R.string.settings_channel_target, targetsPerDay),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = stringResource(R.string.settings_ticker_description),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 )
-                if (channelName == "Ticker") {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.settings_ticker_description),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    )
-                }
             }
-            Switch(checked = enabled, onCheckedChange = { onToggle() })
         }
+        Switch(checked = enabled, onCheckedChange = { onToggle() })
     }
 }
 
@@ -339,14 +385,12 @@ class SettingsViewModel
         private val repo: GoalRepository,
         private val learningExporter: com.retarget.learning.LearningExporter,
     ) : ViewModel() {
-
         val uiState =
             repo
                 .observeActive()
                 .map { goals ->
                     buildSettingsUiState(goals)
-                }
-                .stateIn(viewModelScope, SharingStarted.Eagerly, initialValue = SettingsUiState())
+                }.stateIn(viewModelScope, SharingStarted.Eagerly, initialValue = SettingsUiState())
 
         /**
          * Toggles a channel's enabled state for a specific goal.
@@ -411,16 +455,18 @@ class SettingsViewModel
          */
         fun resetLearning(context: Context) {
             viewModelScope.launch {
-                val cleared = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    learningExporter.wipeAllLearning()
-                }
+                val cleared =
+                    withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        learningExporter.wipeAllLearning()
+                    }
                 android.os.Handler(context.mainLooper).post {
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.settings_reset_learning_done) +
-                            " ($cleared)",
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                    Toast
+                        .makeText(
+                            context,
+                            context.getString(R.string.settings_reset_learning_done) +
+                                " ($cleared)",
+                            Toast.LENGTH_SHORT,
+                        ).show()
                 }
             }
         }
@@ -439,21 +485,23 @@ class SettingsViewModel
                             // Cancel any legacy per-goal notification work (cleanup;
                             // the global delivery worker filters by per-goal settings)
                             NotificationScheduler.cancelAllNotificationsForGoal(context, goalId)
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.toast_notifications_paused),
-                                Toast.LENGTH_LONG,
-                            ).show()
+                            Toast
+                                .makeText(
+                                    context,
+                                    context.getString(R.string.toast_notifications_paused),
+                                    Toast.LENGTH_LONG,
+                                ).show()
                         } else {
                             // Nothing to schedule: NotificationSchedulerManager observes
                             // the settings change and (re)starts the global delivery
                             // worker — the single scheduling path after the
                             // v0.3.x consolidation (no per-goal periodic work).
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.toast_notifications_resumed),
-                                Toast.LENGTH_LONG,
-                            ).show()
+                            Toast
+                                .makeText(
+                                    context,
+                                    context.getString(R.string.toast_notifications_resumed),
+                                    Toast.LENGTH_LONG,
+                                ).show()
                         }
                     }
                     "Wallpaper" -> {
@@ -469,13 +517,14 @@ class SettingsViewModel
                         }
                         // On enable there is nothing to schedule here: the delivery
                         // worker picks up ticker-enabled goals on its next cycle.
-                        Toast.makeText(
-                            context,
-                            context.getString(
-                                if (newEnabled) R.string.toast_ticker_resumed else R.string.toast_ticker_paused,
-                            ),
-                            Toast.LENGTH_LONG,
-                        ).show()
+                        Toast
+                            .makeText(
+                                context,
+                                context.getString(
+                                    if (newEnabled) R.string.toast_ticker_resumed else R.string.toast_ticker_paused,
+                                ),
+                                Toast.LENGTH_LONG,
+                            ).show()
                     }
                 }
             }
